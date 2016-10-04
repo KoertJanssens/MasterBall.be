@@ -688,6 +688,10 @@ var StoreOptions = {
     default: [],
     type: StoreTypes.JSON
   },
+  'remember_text_perfection_notify': {
+    default: '',
+    type: StoreTypes.Number
+  },
   'showGyms': {
     default: false,
     type: StoreTypes.Boolean
@@ -740,6 +744,14 @@ var StoreOptions = {
     default: [],
     type: StoreTypes.JSON
   },
+  'scanHere': {
+    default: false,
+    type: StoreTypes.Boolean
+  },
+  'scanHereAlerted': {
+    default: false,
+    type: StoreTypes.Boolean
+  },
   'pokemonIcons': {
     default: 'highres',
     type: StoreTypes.String
@@ -754,6 +766,10 @@ var StoreOptions = {
   },
   'locationMarkerStyle': {
     default: 'none',
+    type: StoreTypes.String
+  },
+  'gymMarkerStyle': {
+    default: 'shield',
     type: StoreTypes.String
   },
   'zoomLevel': {
@@ -849,4 +865,9 @@ function setupPokemonMarker (item, map, isBounceDisabled) {
 function isTouchDevice () {
   // Should cover most browsers
   return 'ontouchstart' in window || navigator.maxTouchPoints
+}
+
+function isMobileDevice () {
+  //  Basic mobile OS (not browser) detection
+  return (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent))
 }
