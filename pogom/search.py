@@ -764,7 +764,7 @@ def check_speed_limit(args, previous_location, next_location, last_scan_time):
 def stagger_thread(args, account):
     if args.accounts.index(account) == 0:
         return  # No need to delay the first one
-    delay = random.random()
+    delay = args.accounts.index(account) / 50 + random.random()
     log.debug('Delaying thread startup for %.2f seconds', delay)
     time.sleep(delay)
 
