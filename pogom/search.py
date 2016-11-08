@@ -538,14 +538,14 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                     time.sleep(2)
 
                 # If this account has been messing up too hard, let it rest
-                if (args.max_failures > 0) and (consecutive_fails >= args.max_failures):
+                if (args.max_failures > 0) and (consecutive_fails >= args.max_failures or consecutive_fails > status['success']):
                     status['message'] = 'Account {} failed more than {} scans; possibly bad account. Switching accounts...'.format(account['username'], args.max_failures)
                     log.warning(status['message'])
                     account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'failures'})
                     break  # exit this loop to get a new account and have the API recreated
 
                 # If this account had not find anything for too long, let it rest
-                if (args.max_empty > 0) and (consecutive_noitems >= args.max_empty):
+                if (args.max_empty > 0) and (consecutive_noitems >= args.max_empty  or consecutive_noitems > status['success']):
                     status['message'] = 'Account {} returned empty scan for more than {} scans; possibly ip is banned. Switching accounts...'.format(account['username'], args.max_empty)
                     log.warning(status['message'])
                     account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'empty scans'})
@@ -844,7 +844,7 @@ def check_speed_limit(args, previous_location, next_location, last_scan_time):
 def stagger_thread(args, account):
     if args.accounts.index(account) == 0:
         return  # No need to delay the first one
-    delay = args.accounts.index(account) + ((random.random() - .5) / 2)
+    delay = args.accounts.index(account)  % 60 + ((random.random() - .5) / 2)
     log.debug('Delaying thread startup for %.2f seconds', delay)
     time.sleep(delay)
 
