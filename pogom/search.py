@@ -382,7 +382,7 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb, encrypti
             step_distance = 0.07
 
             if args.no_pokemon:
-                step_distance = 0.9
+                step_distance = 0.5
 
             locations = _generate_locations(current_location, step_distance, args.step_limit, len(scheduler_array))
 
