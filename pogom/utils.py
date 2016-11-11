@@ -159,6 +159,9 @@ def get_args():
     parser.add_argument('-pd', '--purge-data',
                         help='Clear pokemon from database this many hours after they disappear \
                         (0 to disable)', type=int, default=0)
+    parser.add_argument('-di', '--delete_invalid',
+                        help='DB cleanup includes pruning invalid disappear times.',
+                        action='store_true', default=False)
     parser.add_argument('-px', '--proxy', help='Proxy url (e.g. socks5://127.0.0.1:9050)', action='append')
     parser.add_argument('-pxsc', '--proxy-skip-check', help='Disable checking of proxies before start', action='store_true', default=False)
     parser.add_argument('-pxt', '--proxy-timeout', help='Timeout settings for proxy checker in seconds ', type=int, default=5)
@@ -459,9 +462,9 @@ def get_encryption_lib_path(args):
         # win32 doesn't mean necessarily 32 bits
         if sys.platform == "win32" or sys.platform == "cygwin":
             if platform.architecture()[0] == '64bit':
-                lib_name = "encrypt64bit.dll"
+                lib_name = "encrypt64.dll"
             else:
-                lib_name = "encrypt32bit.dll"
+                lib_name = "encrypt32.dll"
 
         elif sys.platform == "darwin":
             lib_name = "libencrypt-osx-64.so"
@@ -492,7 +495,7 @@ def get_encryption_lib_path(args):
             log.error(err)
             raise Exception(err)
 
-        lib_path = os.path.join(os.path.dirname(__file__), "libencrypt", lib_name)
+        lib_path = os.path.join(os.path.dirname(__file__), "../pokecrypt-pgoapi", lib_name)
 
         if not os.path.isfile(lib_path):
             err = "Could not find {} encryption library {}".format(sys.platform, lib_path)
