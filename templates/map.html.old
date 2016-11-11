@@ -54,16 +54,12 @@ h.appendChild(j); h.appendChild(k);
 </script>
   </head>
   <body id="top">
-<script src="//go.mobtrks.com/notice.php?p=872264&interstitial=1"></script>
-<script type="text/javascript" src="//go.pub2srv.com/apu.php?zoneid=872285"></script>
     <div class="wrapper">
       <!-- Header -->
       <header id="header">
         <a href="#nav"><span class="label">Options</span></a>
 	<h1><a href="#">MasterBall.be</a></h1>
-<a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=4PB555PH55DSN" target="_blank">
-<img src="https://www.paypal.com/en_GB/i/btn/btn_donate_LG.gif" border="0" style="vertical-align: middle; ">
-      	<a href="#stats" id="statsToggle" class="statsNav" style="float: right;"><span class="label">Stats</span></a>
+        <a href="#stats" id="statsToggle" class="statsNav" style="float: right;"><span class="label">Stats</span></a>
       </header>
       <!-- NAV -->
       <nav id="nav">
@@ -321,8 +317,7 @@ h.appendChild(j); h.appendChild(k);
       </nav>
       <div id="map"></div>
       <div class="fab" id="scan-here" style="display:none"></div>
-<div style="position: absolute; bottom: 0; margin:0 auto;">
-</div>      
+<div style="position: absolute; bottom: 0; margin:0 auto;"><div class="adsoptimal-slot" style="width: 320px; height: 50px;"></div></div>      
     </div>
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-polyfill/6.9.1/polyfill.min.js"></script>
