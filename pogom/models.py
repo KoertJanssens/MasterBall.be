@@ -804,7 +804,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
                      p['time_till_hidden_ms']) / 1000.0)
             else:
                 # Set a value of 15 minutes because currently its unknown but larger than 15.
-                d_t = datetime.utcfromtimestamp((p['last_modified_timestamp_ms'] + 90000) / 1000.0)
+                d_t = datetime.utcfromtimestamp((p['last_modified_timestamp_ms'] + 1800000) / 1000.0)
 
             printPokemon(p['pokemon_data']['pokemon_id'], p['latitude'],
                          p['longitude'], d_t)
