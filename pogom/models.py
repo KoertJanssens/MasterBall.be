@@ -831,10 +831,10 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
         encountered_pokemon = [(p['encounter_id'], p['spawnpoint_id']) for p in query]
 
         for p in wild_pokemon:
-            if (b64encode(str(p['encounter_id'])), p['spawn_point_id']) in encountered_pokemon:
-                # If pokemon has been encountered before dont process it.
-                skipped += 1
-                continue
+#            if (b64encode(str(p['encounter_id'])), p['spawn_point_id']) in encountered_pokemon:
+#                # If pokemon has been encountered before dont process it.
+#                skipped += 1
+#                continue
 
             time_detail = -1
 
