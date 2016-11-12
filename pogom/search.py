@@ -207,7 +207,7 @@ def status_printer(threadStatus, search_items_queue_array, db_updates_queue, wh_
 def account_recycler(accounts_queue, account_failures, args):
     while True:
         # Run once a minute
-        time.sleep(60)
+        time.sleep(5)
         log.info('Account recycler running. Checking status of {} accounts'.format(len(account_failures)))
 
         # Create a new copy of the failure list to search through, so we can iterate through it without it changing
@@ -844,7 +844,7 @@ def check_speed_limit(args, previous_location, next_location, last_scan_time):
 def stagger_thread(args, account):
     if args.accounts.index(account) == 0:
         return  # No need to delay the first one
-    delay = args.accounts.index(account) % 60 + ((random.random() - .5) / 2)
+    delay = args.accounts.index(account) + ((random.random() - .5) / 2)
     log.debug('Delaying thread startup for %.2f seconds', delay)
     time.sleep(delay)
 
