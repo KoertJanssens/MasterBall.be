@@ -362,7 +362,7 @@ function pokemonLabel (name, rarity, types, disappearTime, id, latitude, longitu
       </div>
       `
   }
-  if (valid == 1) {
+  if (valid > 0) {
 	var contentstring = `
 		<div>
 		<b>${name}</b>
@@ -387,8 +387,7 @@ function pokemonLabel (name, rarity, types, disappearTime, id, latitude, longitu
 		<a href='javascript:notifyAboutPokemon(${id})'>Notify</a>&nbsp;&nbsp
 		<a href='javascript:void(0);' onclick='javascript:openMapDirections(${latitude},${longitude});' title='View in Maps'>Get directions</a>
 		</div>`
-  }
-	else {
+  }  else {
 		var contentstring = `
 		<div>
 		<b>${name}</b>
