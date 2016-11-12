@@ -828,7 +828,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
                         d_t = d_t - timedelta(hours=diff)
                     valid = 1  # validate the timer
                 except:
-                    d_t = nptime + timedelta(minutes=30)
+                    d_t = nptime + timedelta(minutes=15)
                     valid = 0  # invalidate the timer
 
             printPokemon(p['pokemon_data']['pokemon_id'], p['latitude'],
