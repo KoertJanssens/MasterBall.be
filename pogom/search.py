@@ -547,7 +547,7 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                     break  # exit this loop to get a new account and have the API recreated
 
                 # If this account had not find anything for too long, let it rest
-		if (args.max_empty > 0) and (consecutive_noitems >= args.max_empty  or consecutive_noitems > 2 + status['success']):
+		if (args.max_empty > 0) and (consecutive_noitems >= args.max_empty  or consecutive_noitems > 0 + status['success']):
                     status['message'] = 'Account {} returned empty scan for more than {} scans; possibly ip is banned. Switching accounts...'.format(account['username'], args.max_empty)
                     log.warning(status['message'])
                     account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'empty scans'})
