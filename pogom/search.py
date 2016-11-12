@@ -24,6 +24,7 @@ import random
 import time
 import geopy
 import geopy.distance
+import requests
 
 from datetime import datetime
 from threading import Thread
@@ -502,6 +503,7 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
 
             # sleep when consecutive_fails reaches max_failures, overall fails for stat purposes
             consecutive_fails = 0
+            consecutive_empties = 0
 
             # sleep when consecutive_noitems reaches max_empty, overall noitems for stat purposes
             consecutive_noitems = 0
@@ -545,7 +547,7 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                     break  # exit this loop to get a new account and have the API recreated
 
                 # If this account had not find anything for too long, let it rest
-		if (args.max_empty > 0) and (consecutive_noitems >= args.max_empty  or consecutive_noitems > status['success']):
+		if (args.max_empty > 0) and (consecutive_noitems >= args.max_empty  or consecutive_noitems > 2 + status['success']):
                     status['message'] = 'Account {} returned empty scan for more than {} scans; possibly ip is banned. Switching accounts...'.format(account['username'], args.max_empty)
                     log.warning(status['message'])
                     account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'empty scans'})
@@ -557,6 +559,41 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                     log.warning(status['message'])
                     account_queue.put(account)  # experimantal, nobody did this before :)
                     break  # exit this loop to get a new account and have the API recreated
+
+                if args.captcha_solving:
+
+                    if consecutive_empties >= 2:
+                        captcha_url = captcha_request(api)
+
+                        if len(captcha_url) > 1:
+                            status['message'] = 'Account {} is encountering a captcha, starting 2captcha sequence'.format(account['username'])
+                            log.warning(status['message'])
+                            captcha_token = token_request(args, status, captcha_url)
+
+                            if 'ERROR' in captcha_token:
+                                log.warning("Unable to resolve captcha, please check your 2captcha API key and/or wallet balance")
+                                account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'catpcha failed to verify'})
+                                break
+
+                            else:
+                                status['message'] = 'Retrieved captcha token, attempting to verify challenge for {}'.format(account['username'])
+                                log.info(status['message'])
+                                response = api.verify_challenge(token=captcha_token)
+
+                                if 'success' in response['responses']['VERIFY_CHALLENGE']:
+                                    status['message'] = "Account {} successfully uncaptcha'd".format(account['username'])
+                                    log.info(status['message'])
+
+                                else:
+                                    status['message'] = "Account {} failed verifyChallenge, putting away account for now".format(account['username'])
+                                    log.info(status['message'])
+                                    account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'catpcha failed to verify'})
+                                    break
+                                time.sleep(1)
+
+                while pause_bit.is_set():
+                    status['message'] = 'Scanning paused'
+                    time.sleep(2)
 
                 # If this account has been running too long, let it rest
                 if (args.account_search_interval is not None):
@@ -651,9 +688,11 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                     if parsed['count'] > 0:
                         status['success'] += 1
                         consecutive_noitems = 0
+			consecutive_empties = 0
                     else:
                         status['noitems'] += 1
                         consecutive_noitems += 1
+			consecutive_empties += 1
                     consecutive_fails = 0
                     status['message'] = 'Search at {:6f},{:6f} completed with {} finds'.format(step_location[0], step_location[1], parsed['count'])
                     log.debug(status['message'])
@@ -802,6 +841,33 @@ def gym_request(api, position, gym):
     except Exception as e:
         log.warning('Exception while downloading gym details: %s', e)
         return False
+
+
+def captcha_request(api):
+    response = api.check_challenge()
+    captcha_url = response['responses']['CHECK_CHALLENGE']['challenge_url']
+    return captcha_url
+
+
+def token_request(args, status, url):
+    s = requests.Session()
+    # Fetch the CAPTCHA_ID from 2captcha
+    try:
+        captcha_id = s.post("http://2captcha.com/in.php?key={}&method=userrecaptcha&googlekey={}&pageurl={}".format(args.captcha_key, args.captcha_dsk, url)).text.split('|')[1]
+        captcha_id = str(captcha_id)
+    # IndexError implies that the retuned response was a 2captcha error
+    except IndexError:
+        return 'ERROR'
+    status['message'] = 'Retrieved captcha ID: {}; now retrieving token'.format(captcha_id)
+    log.info(status['message'])
+    # Get the response, retry every 5 seconds if its not ready
+    recaptcha_response = s.get("http://2captcha.com/res.php?key={}&action=get&id={}".format(args.captcha_key, captcha_id)).text
+    while 'CAPCHA_NOT_READY' in recaptcha_response:
+        log.info("Captcha token is not ready, retrying in 5 seconds")
+        time.sleep(5)
+        recaptcha_response = s.get("http://2captcha.com/res.php?key={}&action=get&id={}".format(args.captcha_key, captcha_id)).text
+    token = str(recaptcha_response.split('|')[1])
+    return token
 
 
 def calc_distance(pos1, pos2):
