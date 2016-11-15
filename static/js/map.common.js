@@ -871,4 +871,4 @@ function isMobileDevice () {
   //  Basic mobile OS (not browser) detection
   return (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent))
 }
-v
+
