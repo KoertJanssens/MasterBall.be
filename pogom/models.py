@@ -831,10 +831,14 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
         encountered_pokemon = [(p['encounter_id'], p['spawnpoint_id']) for p in query]
 
         for p in wild_pokemon:
-#            if (b64encode(str(p['encounter_id'])), p['spawn_point_id']) in encountered_pokemon:
-#                # If pokemon has been encountered before dont process it.
-#                skipped += 1
-#                continue
+            if (b64encode(str(p['encounter_id'])), p['spawn_point_id']) in encountered_pokemon:
+                # This pokemon has been encountered before, let's check if the new one has valid time. If not, skip.
+                if 0 < p['time_till_hidden_ms'] < 3600000:
+                    Pokemon.delete().where(Pokemon.encounter_id == b64encode(str(p['encounter_id']))).execute()
+                else:
+                    # No valid time. Skip.
+                    skipped += 1
+                    continue
 
             time_detail = -1
 
@@ -849,7 +853,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
                 # Set a value of 15 minutes because currently its unknown but larger than 15.
                 predicted_time = Pokemon.predict_disappear_time(p['spawn_point_id'])
                 if not isinstance(predicted_time, datetime):
-                    d_t = datetime.utcfromtimestamp((p['last_modified_timestamp_ms'] + 900000) / 1000.0)
+                    d_t = datetime.utcfromtimestamp((p['last_modified_timestamp_ms'] + 1800000) / 1000.0)
                 else:
                     d_t = predicted_time
                     time_detail = 0
