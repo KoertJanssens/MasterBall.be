@@ -538,31 +538,10 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                 while pause_bit.is_set():
                     status['message'] = 'Scanning paused'
                     time.sleep(2)
+		
+		if args.captcha_solving:
 
-                # If this account has been messing up too hard, let it rest
-		if (args.max_failures > 0) and (consecutive_fails >= args.max_failures or consecutive_fails > 1 + status['success']):
-                    status['message'] = 'Account {} failed more than {} scans; possibly bad account. Switching accounts...'.format(account['username'], args.max_failures)
-                    log.warning(status['message'])
-                    account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'failures'})
-                    break  # exit this loop to get a new account and have the API recreated
-
-                # If this account had not find anything for too long, let it rest
-		if (args.max_empty > 0) and (consecutive_noitems >= args.max_empty  or consecutive_noitems > 2 + status['success']):
-                    status['message'] = 'Account {} returned empty scan for more than {} scans; possibly ip is banned. Switching accounts...'.format(account['username'], args.max_empty)
-                    log.warning(status['message'])
-                    account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'empty scans'})
-                    break  # exit this loop to get a new account and have the API recreated
-
-                # If used proxy disappears from "live list" after background checking - switch account but DO not freeze it (it's not an account failure)
-                if (args.proxy) and (not status['proxy_url'] in args.proxy):
-                    status['message'] = 'Account {} proxy {} is not in a live list any more. Switching accounts...'.format(account['username'], status['proxy_url'])
-                    log.warning(status['message'])
-                    account_queue.put(account)  # experimantal, nobody did this before :)
-                    break  # exit this loop to get a new account and have the API recreated
-
-                if args.captcha_solving:
-
-                    if consecutive_empties >= 2:
+                    if consecutive_empties >= 1:
                         captcha_url = captcha_request(api)
 
                         if len(captcha_url) > 1:
@@ -591,9 +570,28 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                                     break
                                 time.sleep(1)
 
-                while pause_bit.is_set():
-                    status['message'] = 'Scanning paused'
-                    time.sleep(2)
+                # If this account has been messing up too hard, let it rest
+		if (args.max_failures > 0) and (consecutive_fails >= args.max_failures or consecutive_fails > 0 + status['success']):
+                    status['message'] = 'Account {} failed more than {} scans; possibly bad account. Switching accounts...'.format(account['username'], args.max_failures)
+                    log.warning(status['message'])
+                    account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'failures'})
+                    break  # exit this loop to get a new account and have the API recreated
+
+                # If this account had not find anything for too long, let it rest
+		if (args.max_empty > 0) and (consecutive_noitems >= args.max_empty  or consecutive_noitems > 0 + status['success']):
+                    status['message'] = 'Account {} returned empty scan for more than {} scans; possibly ip is banned. Switching accounts...'.format(account['username'], args.max_empty)
+                    log.warning(status['message'])
+                    account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'empty scans'})
+                    break  # exit this loop to get a new account and have the API recreated
+
+                # If used proxy disappears from "live list" after background checking - switch account but DO not freeze it (it's not an account failure)
+                if (args.proxy) and (not status['proxy_url'] in args.proxy):
+                    status['message'] = 'Account {} proxy {} is not in a live list any more. Switching accounts...'.format(account['username'], status['proxy_url'])
+                    log.warning(status['message'])
+                    account_queue.put(account)  # experimantal, nobody did this before :)
+                    break  # exit this loop to get a new account and have the API recreated
+
+                
 
                 # If this account has been running too long, let it rest
                 if (args.account_search_interval is not None):
