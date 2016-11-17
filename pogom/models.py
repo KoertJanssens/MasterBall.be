@@ -276,7 +276,7 @@ class Pokemon(BaseModel):
 
     @classmethod
     def get_spawn_time(cls, disappear_time):
-        return (disappear_time + 2700) % 3600
+        return (disappear_time + 1800) % 3600 
 
     @classmethod
     def clean_timers_data(cls):
