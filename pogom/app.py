@@ -74,7 +74,7 @@ class Pogom(Flask):
         fixed_display = "none" if args.fixed_location else "inline"
         search_display = "inline" if args.search_control and args.on_demand_timeout <= 0 else "none"
         scan_display = "none" if (args.only_server or args.fixed_location or args.spawnpoint_scanning) else "inline"
-        donate = "false"
+        donate_display = "true" if args.donate else "false"
 
         return render_template('map.html',
                                lat=self.current_location[0],
@@ -84,7 +84,7 @@ class Pogom(Flask):
                                is_fixed=fixed_display,
                                search_control=search_display,
                                show_scan=scan_display,
-                               donate_boolean=donate
+                               donate_boolean=donate_display
                                )
 
     def raw_data(self):
