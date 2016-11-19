@@ -214,6 +214,9 @@ def get_args():
     parser.add_argument('-msld', '--max-speed-limit-delay',
                         help='Maximum delay in seconds allowed due to speed limit',
                         type=int, default=0)
+    parser.add_argument('--donate',
+                        help='Show map without ads',
+                        action='store_true', default=False)
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument('-v', '--verbose', help='Show debug messages from PomemonGo-Map and pgoapi. Optionally specify file to log to.', nargs='?', const='nofile', default=False, metavar='filename.log')
     verbosity.add_argument('-vv', '--very-verbose', help='Like verbose, but show debug messages from all modules as well.  Optionally specify file to log to.', nargs='?', const='nofile', default=False, metavar='filename.log')
