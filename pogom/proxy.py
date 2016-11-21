@@ -26,13 +26,8 @@ check_result_empty = 6
 check_result_max = 6  # Should be equal to maximal return code!
 
 
-<<<<<<< HEAD
-# Simple function to do a call to Niantic's system for testing proxy connectivity.
-def check_proxy(proxy_queue, timeout, proxies):
-=======
 # Simple function to do a call to Niantic's system for testing proxy connectivity
 def check_proxy(proxy_queue, timeout, proxies, show_warnings, check_results):
->>>>>>> proxies1235
 
     # Url for proxy testing.
     proxy_test_url = 'https://pgorelease.nianticlabs.com/plfe/rpc'
