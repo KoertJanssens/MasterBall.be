@@ -939,11 +939,11 @@ var StoreOptions = {
     type: StoreTypes.JSON
   },
   'scanHere': {
-    default: false,
+    default: true,
     type: StoreTypes.Boolean
   },
   'scanHereAlerted': {
-    default: false,
+    default: true,
     type: StoreTypes.Boolean
   },
   'pokemonIcons': {
