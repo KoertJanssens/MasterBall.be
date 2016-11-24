@@ -1422,6 +1422,38 @@ def hex_bounds(center, steps=None, radius=None):
     w = get_new_coords(center, sp_dist, 270)[1]
     return (n, e, s, w)
 
+def construct_pokemon_dict(pokemons, p, encounter_result, d_t):
+    pokemons[p['encounter_id']] = {
+        'encounter_id': b64encode(str(p['encounter_id'])),
+        'spawnpoint_id': p['spawn_point_id'],
+        'pokemon_id': p['pokemon_data']['pokemon_id'],
+        'latitude': p['latitude'],
+        'longitude': p['longitude'],
+        'disappear_time': d_t,
+    }
+    if encounter_result is not None and 'wild_pokemon' in encounter_result['responses']['ENCOUNTER']:
+        pokemon_info = encounter_result['responses']['ENCOUNTER']['wild_pokemon']['pokemon_data']
+        attack = pokemon_info.get('individual_attack', 0)
+        defense = pokemon_info.get('individual_defense', 0)
+        stamina = pokemon_info.get('individual_stamina', 0)
+        pokemons[p['encounter_id']].update({
+            'individual_attack': attack,
+            'individual_defense': defense,
+            'individual_stamina': stamina,
+            'move_1': pokemon_info['move_1'],
+            'move_2': pokemon_info['move_2'],
+        })
+    else:
+        if encounter_result is not None and 'wild_pokemon' not in encounter_result['responses']['ENCOUNTER']:
+            log.warning("Error encountering {}, status code: {}".format(p['encounter_id'], encounter_result['responses']['ENCOUNTER']['status']))
+        pokemons[p['encounter_id']].update({
+            'individual_attack': None,
+            'individual_defense': None,
+            'individual_stamina': None,
+            'move_1': None,
+            'move_2': None,
+        })
+
 
 # todo: this probably shouldn't _really_ be in "models" anymore, but w/e
 def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, api):
