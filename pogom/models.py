@@ -1539,41 +1539,20 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
             if (args.encounter and (p['pokemon_data']['pokemon_id'] in args.encounter_whitelist or
                                     p['pokemon_data']['pokemon_id'] not in args.encounter_blacklist and not args.encounter_whitelist)):
                 time.sleep(args.encounter_delay)
-                encounter_result = api.encounter(encounter_id=p['encounter_id'],
+                # Set up encounter request envelope
+                req = api.create_request()
+                encounter_result = req.encounter(encounter_id=p['encounter_id'],
                                                  spawn_point_id=p['spawn_point_id'],
                                                  player_latitude=step_location[0],
                                                  player_longitude=step_location[1])
-
-            pokemons[p['encounter_id']] = {
-                'encounter_id': b64encode(str(p['encounter_id'])),
-                'spawnpoint_id': p['spawn_point_id'],
-                'pokemon_id': p['pokemon_data']['pokemon_id'],
-                'latitude': p['latitude'],
-                'longitude': p['longitude'],
-                'disappear_time': disappear_time,
-            }
-
-            if encounter_result is not None and 'wild_pokemon' in encounter_result['responses']['ENCOUNTER']:
-                pokemon_info = encounter_result['responses']['ENCOUNTER']['wild_pokemon']['pokemon_data']
-                pokemons[p['encounter_id']].update({
-                    'individual_attack': pokemon_info.get('individual_attack', 0),
-                    'individual_defense': pokemon_info.get('individual_defense', 0),
-                    'individual_stamina': pokemon_info.get('individual_stamina', 0),
-                    'move_1': pokemon_info['move_1'],
-                    'move_2': pokemon_info['move_2'],
-                })
-
-            else:
-                if encounter_result is not None and 'wild_pokemon' not in encounter_result['responses']['ENCOUNTER']:
-                    log.warning("Error encountering {}, status code: {}".format(p['encounter_id'], encounter_result['responses']['ENCOUNTER']['status']))
-                pokemons[p['encounter_id']].update({
-                    'individual_attack': None,
-                    'individual_defense': None,
-                    'individual_stamina': None,
-                    'move_1': None,
-                    'move_2': None,
-                })
-
+                encounter_result = req.check_challenge()
+                encounter_result = req.get_hatched_eggs()
+                encounter_result = req.get_inventory()
+                encounter_result = req.check_awarded_badges()
+                encounter_result = req.download_settings()
+                encounter_result = req.get_buddy_walked()
+                encounter_result = req.call()
+            construct_pokemon_dict(pokemons, p, encounter_result, d_t)
             if args.webhooks:
 
                 wh_poke = pokemons[p['encounter_id']].copy()
