@@ -131,7 +131,8 @@ def status_printer(threadStatus, search_items_queue, db_updates_queue, wh_queue,
                     skip_total += threadStatus[item]['skip']
 
             # Print the queue length.
-            status_text.append('Queues: {} search items, {} db updates, {} webhook.  Total skipped items: {}. Spare accounts available: {}. Accounts on hold: {}'.format(search_items_queue.qsize(), db_updates_queue.qsize(), wh_queue.qsize(), skip_total, account_queue.qsize(), len(account_failures)))
+            status_text.append('Queues: {} search items, {} db updates, {} webhook.  Total skipped items: {}. Spare accounts available: {}. Accounts on hold: {}'
+                               .format(search_items_queue.qsize(), db_updates_queue.qsize(), wh_queue.qsize(), skip_total, account_queue.qsize(), len(account_failures)))
 
             # Print status of overseer.
             status_text.append('{} Overseer: {}'.format(threadStatus['Overseer']['scheduler'], threadStatus['Overseer']['message']))
@@ -354,8 +355,14 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb, db_updat
         # If there are no search_items_queue either the loop has finished (or been
         # cleared above) -- either way, time to fill it back up
         if scheduler.time_to_refresh_queue():
+            threadStatus['Overseer']['message'] = 'Search queue empty, scheduling more items to scan'
             log.debug('Search queue empty, scheduling more items to scan')
-            scheduler.schedule()
+            try:  # Can't have the scheduler die because of a DB deadlock
+                scheduler.schedule()
+            except Exception as e:
+                log.error('Exception making schedule. Exception message: {}'.format(e))
+                traceback.print_exc(file=sys.stdout)
+                time.sleep(10)
         else:
             threadStatus['Overseer']['message'] = scheduler.get_overseer_message()
 

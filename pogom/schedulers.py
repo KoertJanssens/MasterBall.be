@@ -525,7 +525,8 @@ class SpeedScan(HexSearch):
         counter = {
             'TTH': 0,
             'spawn': 0,
-            'band': 0
+            'band': 0,
+            'links': 0
         }
         for item in self.queues[0]:
             if item.get('done', False):
@@ -540,8 +541,8 @@ class SpeedScan(HexSearch):
             n += 1
             counter[item['kind']] += 1
 
-        message = 'Scanning status: {} total waiting, {} initial bands, {} TTH searches, and {} new spawns'.format(
-            n, counter['band'], counter['TTH'], counter['spawn'])
+        message = 'Scanning status: {} total waiting, {} initial bands, {} TTH searches, {} links, and {} new spawns'\
+            .format(n, counter['band'], counter['TTH'], counter['links'], counter['spawn'])
         if self.status_message:
             message += '\n' + self.status_message
 
@@ -608,24 +609,36 @@ class SpeedScan(HexSearch):
             kinds = {}
             tth_ranges = {}
             tth_found = 0
+            links_ok = 0
+            active_sp = 0
             found_percent = 100
             good_percent = 100
             spawns_reached = 100
             spawnpoints = SpawnPoint.select_in_hex(self.scan_location, self.args.step_limit)
             for sp in spawnpoints:
+                if sp['missed_count'] > 5:
+                    continue
+                active_sp += 1
                 tth_found += sp['earliest_unseen'] == sp['latest_seen']
+                links_ok += not sp['links'].count('?')
                 kind = sp['kind']
                 kinds[kind] = kinds.get(kind, 0) + 1
                 tth_range = str(int(round(((sp['earliest_unseen'] - sp['latest_seen']) % 3600) / 60.0)))
                 tth_ranges[tth_range] = tth_ranges.get(tth_range, 0) + 1
             tth_ranges['0'] = tth_ranges.get('0', 0) - tth_found
+            links_percent = links_ok * 100 / len(spawnpoints)
 
             log.info('Total Spawn Points found in hex: %d', len(spawnpoints))
+            log.info('Inactive Spawn Points found in hex: %d or %d%%',
+                     len(spawnpoints) - active_sp, (len(spawnpoints) - active_sp) * 100 / len(spawnpoints))
+            log.info('Active Spawn Points found in hex: %d or %d%%',
+                     active_sp, active_sp * 100 / len(spawnpoints))
             for k in sorted(kinds.keys()):
-                log.info('%s kind spawns: %d or %d%%', k, kinds[k], kinds[k] * 100 / len(spawnpoints))
-            log.info('Spawns with found TTH: %d or %d%%', tth_found, tth_found * 100 / len(spawnpoints))
+                log.info('%s kind spawns: %d or %d%%', k, kinds[k], kinds[k] * 100 / active_sp)
+            log.info('Spawns with found TTH: %d or %d%%', tth_found, tth_found * 100 / active_sp)
             for k in sorted(tth_ranges.keys(), key=int):
                 log.info('Spawnpoints with a %sm range to find TTH: %d', k, tth_ranges[k])
+            log.info('Spawns with all links known: %d or %d%%', links_ok, links_percent)
             log.info('Over last %d minutes: %d new bands, %d Pokemon found',
                      self.minutes, bands_timed, spawns_all)
             log.info('Of the %d total spawns, %d were targeted, and %d found scanning for others',
@@ -667,7 +680,8 @@ class SpeedScan(HexSearch):
                 log.warning('Missed scans: %s', Counter(self.scans_missed_list).most_common(3))
             log.info('History: %s', str(self.scan_percent).strip('[]'))
             self.status_message = 'Initial scan: {}%, TTH found: {}%, '.format(band_percent, tth_found * 100 / len(spawnpoints))
-            self.status_message += 'Spawns reached: {}%, Spawns found: {}%, Good scans {}%'.format(spawns_reached, found_percent, good_percent)
+            self.status_message += 'Spawns reached: {}%, Spawns found: {}%, Good scans {}%, Links known {}%'\
+                .format(spawns_reached, found_percent, good_percent, links_percent)
             self._stat_init()
 
     # Find the best item to scan next
