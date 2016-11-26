@@ -525,39 +525,7 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                 status['message'] = messages['search']
                 log.info(status['message'])
                 
-                if args.captcha_solving:
-
-                    if consecutive_noitems >= 0:
-                        captcha_url = captcha_request(api)
-
-                        if len(captcha_url) > 1:
-                            if args.captcha_key is not None:
-                                status['message'] = 'Account {} is encountering a captcha, starting 2captcha sequence'.format(account['username'])
-                            else:
-                                status['message'] = 'Account {} is encountering a captcha, starting manual captcha solving'.format(account['username'])
-                            log.warning(status['message'])
-                            captcha_token = token_request(args, status, captcha_url, whq)
-
-                            if 'ERROR' in captcha_token:
-                                log.warning("Unable to resolve captcha, please check your 2captcha API key and/or wallet balance")
-                                account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'catpcha failed to verify'})
-                                break
-
-                            else:
-                                status['message'] = 'Retrieved captcha token, attempting to verify challenge for {}'.format(account['username'])
-                                log.info(status['message'])
-                                response = api.verify_challenge(token=captcha_token)
-
-                                if 'success' in response['responses']['VERIFY_CHALLENGE']:
-                                    status['message'] = "Account {} successfully uncaptcha'd".format(account['username'])
-                                    log.info(status['message'])
-
-                                else:
-                                    status['message'] = "Account {} failed verifyChallenge, putting away account for now".format(account['username'])
-                                    log.info(status['message'])
-                                    account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'catpcha failed to verify'})
-                                    break
-                                time.sleep(1)                
+                
 
                 # Make the actual request (finally!)
                 status['message'] = 'Searching at {:6f},{:6f}'.format(step_location[0], step_location[1])
@@ -600,6 +568,40 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                     # consecutive_noitems = 0 - I propose to leave noitems counter in case of error
                     status['message'] = 'Map parse failed at {:6f},{:6f}, abandoning location. {} may be banned.'.format(step_location[0], step_location[1], account['username'])
                     log.exception('{}. Exception message: {}'.format(status['message'], e))
+                    
+                if args.captcha_solving:
+
+                    if consecutive_noitems >= 1:
+                        captcha_url = captcha_request(api)
+
+                        if len(captcha_url) > 1:
+                            if args.captcha_key is not None:
+                                status['message'] = 'Account {} is encountering a captcha, starting 2captcha sequence'.format(account['username'])
+                            else:
+                                status['message'] = 'Account {} is encountering a captcha, starting manual captcha solving'.format(account['username'])
+                            log.warning(status['message'])
+                            captcha_token = token_request(args, status, captcha_url, whq)
+
+                            if 'ERROR' in captcha_token:
+                                log.warning("Unable to resolve captcha, please check your 2captcha API key and/or wallet balance")
+                                account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'catpcha failed to verify'})
+                                break
+
+                            else:
+                                status['message'] = 'Retrieved captcha token, attempting to verify challenge for {}'.format(account['username'])
+                                log.info(status['message'])
+                                response = api.verify_challenge(token=captcha_token)
+
+                                if 'success' in response['responses']['VERIFY_CHALLENGE']:
+                                    status['message'] = "Account {} successfully uncaptcha'd".format(account['username'])
+                                    log.info(status['message'])
+
+                                else:
+                                    status['message'] = "Account {} failed verifyChallenge, putting away account for now".format(account['username'])
+                                    log.info(status['message'])
+                                    account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'catpcha failed to verify'})
+                                    break
+                                time.sleep(1)                    
 
                 # Get detailed information about gyms.
                 if args.gym_info and parsed:
