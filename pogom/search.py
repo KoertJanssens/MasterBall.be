@@ -447,7 +447,7 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
 
                 if args.captcha_solving:
 
-                    if consecutive_noitems >= 2:
+                    if consecutive_noitems >= 0:
                         captcha_url = captcha_request(api)
 
                         if len(captcha_url) > 1:
