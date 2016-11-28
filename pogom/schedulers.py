@@ -62,7 +62,7 @@ class BaseScheduler(object):
         self.args = args
         self.scan_location = False
         self.size = None
-        self.ready = True
+        self.ready = False
 
     # Schedule function fills the queues with data.
     def schedule(self):
@@ -121,6 +121,7 @@ class BaseScheduler(object):
 
     # Function to empty all queues in the queues list
     def empty_queues(self):
+        self.ready = False
         for queue in self.queues:
             if not queue.empty():
                 try:
@@ -438,10 +439,14 @@ class SpeedScan(HexSearch):
         self.locations = self._generate_locations()
         scans = {}
         initial = {}
+        scan_locs = ScannedLocation.select_in_hex(self.scan_location, self.args.step_limit)
         for i, e in enumerate(self.locations):
-            scans[cellid(e[1])] = {'loc': e[1],  # Lat/long pair
-                                   'step': e[0]}
-            initial[cellid(e[1])] = ScannedLocation.get_by_loc(e[1])
+            cell = cellid(e[1])
+            scans[cell] = {'loc': e[1],  # Lat/long pair
+                           'step': e[0]}
+
+            scan_loc = filter(lambda x: x['latitude'] == e[1][0] and x['longitude'] == e[1][1], scan_locs)
+            initial[cell] = scan_loc[0] if scan_loc else ScannedLocation.new_loc(e[1])
 
         self.scans = scans
         db_update_queue.put((ScannedLocation, initial))
@@ -455,9 +460,9 @@ class SpeedScan(HexSearch):
 
         log.info('Assigning spawn points to scans')
         scan_spawn_point = {}
-        ScannedLocation.get_spawn_points(scans, spawnpoints, self.step_distance, scan_spawn_point)
+        ScannedLocation.link_spawn_points(scans, initial, spawnpoints, self.step_distance, scan_spawn_point)
         if len(scan_spawn_point):
-            log.info('%d new relations found between the spawn points and steps', len(scan_spawn_point))
+            log.info('%d relations found between the spawn points and steps', len(scan_spawn_point))
             db_update_queue.put((ScanSpawnPoint, scan_spawn_point))
         else:
             log.info('Spawn points assigned')
@@ -551,7 +556,8 @@ class SpeedScan(HexSearch):
     # Refresh queue every 5 minutes
     # the first band of a scan is done
     def time_to_refresh_queue(self):
-        return (datetime.utcnow() - self.refresh_date).total_seconds() > self.minutes * 60
+        return (datetime.utcnow() - self.refresh_date).total_seconds() > self.minutes * 60 or \
+            self.queues == [[]]
 
     # Function to empty all queues in the queues list
     def empty_queues(self):
@@ -565,7 +571,7 @@ class SpeedScan(HexSearch):
         try:
             bands_total = len(self.locations) * 5
             bands_filled = ScannedLocation.bands_filled(self.locations)
-            percent = bands_filled * 100 / bands_total
+            percent = bands_filled * 100.0 / bands_total
             if bands_total == bands_filled:
                 log.info('Initial spawnpoint scan is complete')
             else:
@@ -611,9 +617,9 @@ class SpeedScan(HexSearch):
             tth_found = 0
             links_ok = 0
             active_sp = 0
-            found_percent = 100
-            good_percent = 100
-            spawns_reached = 100
+            found_percent = 100.0
+            good_percent = 100.0
+            spawns_reached = 100.0
             spawnpoints = SpawnPoint.select_in_hex(self.scan_location, self.args.step_limit)
             for sp in spawnpoints:
                 if sp['missed_count'] > 5:
@@ -626,19 +632,19 @@ class SpeedScan(HexSearch):
                 tth_range = str(int(round(((sp['earliest_unseen'] - sp['latest_seen']) % 3600) / 60.0)))
                 tth_ranges[tth_range] = tth_ranges.get(tth_range, 0) + 1
             tth_ranges['0'] = tth_ranges.get('0', 0) - tth_found
-            links_percent = links_ok * 100 / len(spawnpoints)
+            links_percent = links_ok * 100.0 / len(spawnpoints)
 
             log.info('Total Spawn Points found in hex: %d', len(spawnpoints))
-            log.info('Inactive Spawn Points found in hex: %d or %d%%',
-                     len(spawnpoints) - active_sp, (len(spawnpoints) - active_sp) * 100 / len(spawnpoints))
-            log.info('Active Spawn Points found in hex: %d or %d%%',
-                     active_sp, active_sp * 100 / len(spawnpoints))
+            log.info('Inactive Spawn Points found in hex: %d or %.1f%%',
+                     len(spawnpoints) - active_sp, (len(spawnpoints) - active_sp) * 100.0 / len(spawnpoints))
+            log.info('Active Spawn Points found in hex: %d or %.1f%%',
+                     active_sp, active_sp * 100.0 / len(spawnpoints))
             for k in sorted(kinds.keys()):
-                log.info('%s kind spawns: %d or %d%%', k, kinds[k], kinds[k] * 100 / active_sp)
-            log.info('Spawns with found TTH: %d or %d%%', tth_found, tth_found * 100 / active_sp)
+                log.info('%s kind spawns: %d or %.1f%%', k, kinds[k], kinds[k] * 100.0 / active_sp)
+            log.info('Spawns with found TTH: %d or %.1f%%', tth_found, tth_found * 100.0 / active_sp)
             for k in sorted(tth_ranges.keys(), key=int):
                 log.info('Spawnpoints with a %sm range to find TTH: %d', k, tth_ranges[k])
-            log.info('Spawns with all links known: %d or %d%%', links_ok, links_percent)
+            log.info('Spawns with all links known: %d or %.1f%%', links_ok, links_percent)
             log.info('Over last %d minutes: %d new bands, %d Pokemon found',
                      self.minutes, bands_timed, spawns_all)
             log.info('Of the %d total spawns, %d were targeted, and %d found scanning for others',
@@ -651,7 +657,7 @@ class SpeedScan(HexSearch):
 
             sum = spawns_all + spawns_missed
             if sum:
-                spawns_reached = spawns_all * 100 / (spawns_all + spawns_missed)
+                spawns_reached = spawns_all * 100.0 / (spawns_all + spawns_missed)
                 log.info('%d Pokemon found, and %d were not reached in time for %.1f%% found',
                          spawns_all, spawns_missed, spawns_reached)
 
@@ -662,8 +668,8 @@ class SpeedScan(HexSearch):
 
                 spawns_missed = reduce(lambda x, y: x + len(y), self.spawns_missed_delay.values(), 0)
                 sum = spawns_missed + self.spawns_found
-                found_percent = self.spawns_found * 100 / sum if sum else 0
-                log.info('%d spawns scanned and %d spawns were not there when expected for %d%%',
+                found_percent = self.spawns_found * 100.0 / sum if sum else 0
+                log.info('%d spawns scanned and %d spawns were not there when expected for %.1f%%',
                          self.spawns_found, spawns_missed, found_percent)
                 self.spawn_percent.append(found_percent)
                 if self.spawns_missed_delay:
@@ -672,14 +678,14 @@ class SpeedScan(HexSearch):
                 log.info('History: %s', str(self.spawn_percent).strip('[]'))
 
             sum = self.scans_done + len(self.scans_missed_list)
-            good_percent = self.scans_done * 100 / sum if sum else 0
-            log.info('%d scans successful and %d scans missed for %d%% found',
+            good_percent = self.scans_done * 100.0 / sum if sum else 0
+            log.info('%d scans successful and %d scans missed for %.1f%% found',
                      self.scans_done, len(self.scans_missed_list), good_percent)
             self.scan_percent.append(good_percent)
             if self.scans_missed_list:
                 log.warning('Missed scans: %s', Counter(self.scans_missed_list).most_common(3))
             log.info('History: %s', str(self.scan_percent).strip('[]'))
-            self.status_message = 'Initial scan: {}%, TTH found: {}%, '.format(band_percent, tth_found * 100 / (active_sp + (active_sp == 0)))
+            self.status_message = 'Initial scan: {}%, TTH found: {}%, '.format(band_percent, tth_found * 100.0 / (active_sp + (active_sp == 0)))
             self.status_message += 'Spawns reached: {}%, Spawns found: {}%, Good scans {}%, Links known {}%'\
                 .format(spawns_reached, found_percent, good_percent, links_percent)
             self._stat_init()

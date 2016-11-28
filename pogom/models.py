@@ -663,6 +663,22 @@ class ScannedLocation(BaseModel):
 
         return list(query)
 
+    # DB format of a new location
+    @staticmethod
+    def new_loc(loc):
+        return {'cellid': cellid(loc),
+                'latitude': loc[0],
+                'longitude': loc[1],
+                'done': False,
+                'band1': -1,
+                'band2': -1,
+                'band3': -1,
+                'band4': -1,
+                'band5': -1,
+                'width': 0,
+                'midpoint': 0,
+                'last_modified': None}
+
     # Used to update bands
     @staticmethod
     def db_format(scan, band, nowms):
@@ -684,29 +700,16 @@ class ScannedLocation(BaseModel):
                         (ScannedLocation.longitude == loc[1]))
                  .dicts())
 
-        return query[0] if len(list(query)) else {'cellid': cellid(loc),
-                                                  'latitude': loc[0],
-                                                  'longitude': loc[1],
-                                                  'done': False,
-                                                  'band1': -1,
-                                                  'band2': -1,
-                                                  'band3': -1,
-                                                  'band4': -1,
-                                                  'band5': -1,
-                                                  'width': 0,
-                                                  'midpoint': 0,
-                                                  'last_modified': None}
+        return query[0] if len(list(query)) else cls.new_loc(loc)
 
     # Check if spawn points in a list are in any of the existing spannedlocation records
     # Otherwise, search through the spawn point list, and update scan_spawn_point dict for DB bulk upserting
     @classmethod
-    def get_spawn_points(cls, scans, spawn_points, distance, scan_spawn_point):
+    def link_spawn_points(cls, scans, initial, spawn_points, distance, scan_spawn_point):
         for cell, scan in scans.iteritems():
-            # Pass on cells that have been scanned at least once before
-            if cls.get_by_loc(scan['loc'])['band1'] > -1:
+            if initial[cell]['done']:
                 continue
 
-            # Otherwise, do a search of spawn points from the list to see if in range
             for sp in spawn_points:
                 if in_radius((sp['latitude'], sp['longitude']), scan['loc'], distance):
                     scan_spawn_point[cell + sp['id']] = {'spawnpoint': sp['id'],
@@ -835,6 +838,42 @@ class ScannedLocation(BaseModel):
         scan_loc['last_modified'] = datetime.utcnow()
         for i in range(1, 6):
             scan_loc['band' + str(i)] = -1
+
+    @classmethod
+    def select_in_hex(cls, center, steps):
+        # should be a way to delegate this to SpawnPoint.select_in_hex, but w/e
+
+        R = 6378.1  # km radius of the earth
+        hdist = ((steps * 120.0) - 50.0) / 1000.0
+        n, e, s, w = hex_bounds(center, steps)
+
+        # get all spawns in that box
+        sp = list(cls
+                  .select()
+                  .where((cls.latitude <= n) &
+                         (cls.latitude >= s) &
+                         (cls.longitude >= w) &
+                         (cls.longitude <= e))
+                  .dicts())
+
+        # for each spawn work out if it is in the hex (clipping the diagonals)
+        in_hex = []
+        for spawn in sp:
+            # get the offset from the center of each spawn in km
+            offset = [math.radians(spawn['latitude'] - center[0]) * R,
+                      math.radians(spawn['longitude'] - center[1]) * (R * math.cos(math.radians(center[0])))]
+            # check agains the 4 lines that make up the diagonals
+            if (offset[1] + (offset[0] * 0.5)) > hdist:  # too far ne
+                continue
+            if (offset[1] - (offset[0] * 0.5)) > hdist:  # too far se
+                continue
+            if ((offset[0] * 0.5) - offset[1]) > hdist:  # too far nw
+                continue
+            if ((0 - offset[1]) - (offset[0] * 0.5)) > hdist:  # too far sw
+                continue
+            # if it gets to here its  a good spawn
+            in_hex.append(spawn)
+        return in_hex
 
 
 class MainWorker(BaseModel):
@@ -1095,7 +1134,7 @@ class SpawnPoint(BaseModel):
                   .dicts())
 
         # for each spawn work out if it is in the hex (clipping the diagonals)
-        trueSpawns = []
+        in_hex = []
         for spawn in sp:
             # get the offset from the center of each spawn in km
             offset = [math.radians(spawn['latitude'] - center[0]) * R,
@@ -1110,8 +1149,8 @@ class SpawnPoint(BaseModel):
             if ((0 - offset[1]) - (offset[0] * 0.5)) > hdist:  # too far sw
                 continue
             # if it gets to here its  a good spawn
-            trueSpawns.append(spawn)
-        return trueSpawns
+            in_hex.append(spawn)
+        return in_hex
 
 
 class ScanSpawnPoint(BaseModel):
