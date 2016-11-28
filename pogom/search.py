@@ -838,7 +838,7 @@ def token_request(args, status, url, whq):
             whq.put(('token_needed', {"num": token_needed}))
         while request_time + timedelta(seconds=args.manual_captcha_solving_allowance_time) > datetime.utcnow():
             tokenLock.acquire()
-            if args.no_server:
+            if False: #args.no_server:
                 # multiple instances, use get_token in map
                 s = requests.Session()
                 url = "{}/get_token?request_time={}&password={}".format(args.manual_captcha_solving_domain, request_time, args.manual_captcha_solving_password)
