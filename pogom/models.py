@@ -1042,8 +1042,8 @@ class SpawnPoint(BaseModel):
 
             sp = SpawnPoint.get_by_id(sp_id)
 
-            if sp['missed_count'] > 5:
-                continue
+            #if sp['missed_count'] > 5:
+            #    continue
 
             endpoints = SpawnPoint.start_end(sp, scan_delay)
             cls.add_if_not_scanned('spawn', l, sp, scan, endpoints[0], endpoints[1], now_date, now_secs)
