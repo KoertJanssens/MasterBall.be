@@ -10,7 +10,6 @@ import gc
 import time
 import geopy
 import math
-from operator import itemgetter
 from peewee import SqliteDatabase, InsertQuery, Check, CompositeKey, \
     IntegerField, CharField, DoubleField, BooleanField, \
     DateTimeField, fn, DeleteQuery, FloatField, SQL, TextField
@@ -146,11 +145,6 @@ class Pokemon(BaseModel):
 
         pokemons = []
         for p in list(query):
-
-            # Disabled until confirmed double spawns exist
-            # sp = SpawnPoint.get_by_id(p['spawnpoint_id'])
-            # if SpawnPoint.hidden(sp, now_secs):
-            #    continue
 
             p['pokemon_name'] = get_pokemon_name(p['pokemon_id'])
             p['pokemon_rarity'] = get_pokemon_rarity(p['pokemon_id'])
@@ -1022,7 +1016,7 @@ class SpawnPoint(BaseModel):
 
     # return [start, end] in seconds after the hour for the spawn, despawn time of a spawnpoint
     @classmethod
-    def start_end(cls, sp, links=False):
+    def start_end(cls, sp, spawn_delay=0, links=False):
         links_arg = links
         links = links if links else str(sp['links'])
 
@@ -1034,25 +1028,10 @@ class SpawnPoint(BaseModel):
 
         links = links[:-1] + '-'
         plus_or_minus = links.index('+') if links.count('+') else links.index('-')
-        start = sp['earliest_unseen'] - (4 - plus_or_minus) * 900
+        start = sp['earliest_unseen'] - (4 - plus_or_minus) * 900 + spawn_delay
         no_tth_adjust = 60 if not links_arg and not cls.tth_found(sp) else 0
         end = sp['latest_seen'] - (3 - links.index('-')) * 900 + no_tth_adjust
         return [start % 3600, end % 3600]
-
-    # return [start, end] in seconds after the hour for the hidden start, end times of a spawnpoint
-    # currently only works for double spawnpoints, hshs
-    @classmethod
-    def hidden(cls, sp, now_secs=False):
-        if sp['kind'] != 'hshs':
-            return []
-
-        links = str(sp['links'])
-        start_endpoints = cls.start_end(sp, links.replace('-', 'h').replace('+', '-'))
-        end_endpoints = cls.start_end(sp, links.replace('+', 'h'))
-
-        return clock_between(start_endpoints[1], now_secs, end_endpoints[0]) \
-            if now_secs \
-            else [start_endpoints[1], end_endpoints[0]]
 
     # Return a list of dicts with the next spawn times
     @classmethod
@@ -1066,41 +1045,23 @@ class SpawnPoint(BaseModel):
             if sp['missed_count'] > 5:
                 continue
 
-            endpoints = SpawnPoint.start_end(sp)
-            hidden = SpawnPoint.hidden(sp)
-            if hidden:
-                cls.add_if_not_scanned('spawn', l, sp, scan, endpoints[0], hidden[0], now_date, now_secs)
-
-                # Don't scan after hidden period if already scanned before, unless we're still working on links
-                cls.add_if_not_scanned('spawn', l, sp, scan, hidden[1], endpoints[1], now_date, now_secs,
-                                       None if sp['links'].count('?') else endpoints[0])
-            else:
-                cls.add_if_not_scanned('spawn', l, sp, scan, endpoints[0], endpoints[1], now_date, now_secs)
+            endpoints = SpawnPoint.start_end(sp, scan_delay)
+            cls.add_if_not_scanned('spawn', l, sp, scan, endpoints[0], endpoints[1], now_date, now_secs)
 
             # check to see if still searching for valid TTH
             if cls.tth_found(sp):
-                # confirm links
-                if False and sp['links'].count('?'):  # disabled until confirmed hidden time exist
-                    links = list('hhhh')
-                    links[sp['links'].index('?')] = '-'
-                    links = ''.join(links)
-                    endpoints = SpawnPoint.start_end(sp, links)
-                    cls.add_if_not_scanned('links', l, sp, scan, endpoints[0], endpoints[1], now_date, now_secs)
-
                 continue
 
             # add a spawnpoint check between latest seen and earliest seen
-            end = sp['earliest_unseen']
             start = sp['latest_seen'] + scan_delay
+            end = sp['earliest_unseen']
 
             cls.add_if_not_scanned('TTH', l, sp, scan, start, end, now_date, now_secs)
 
         return l
 
     @classmethod
-    def add_if_not_scanned(cls, kind, l, sp, scan, start, end, now_date, now_secs, pre_hidden=None):
-        pre_hidden = pre_hidden if pre_hidden else start
-
+    def add_if_not_scanned(cls, kind, l, sp, scan, start, end, now_date, now_secs):
         # make sure later than now_secs
         while end < now_secs:
             start, end = start + 3600, end + 3600
@@ -1109,7 +1070,7 @@ class SpawnPoint(BaseModel):
         while start > end:
             start -= 3600
 
-        if (now_date - cls.get_by_id(sp['id'])['last_scanned']).total_seconds() > now_secs - pre_hidden:
+        if (now_date - cls.get_by_id(sp['id'])['last_scanned']).total_seconds() > now_secs - start:
             l.append(ScannedLocation._q_init(scan, start, end, kind, sp['id']))
 
     # given seconds after the hour and a spawnpoint dict, return which quartile of the
@@ -1173,12 +1134,7 @@ class SpawnpointDetectionData(BaseModel):
     tth_secs = IntegerField(null=True)
 
     @classmethod
-    def classify(cls, sp, scan_loc, sighting=None, force=False):
-
-        # if no new sighting
-        # if SpawnPoint.tth_found(sp) and sp['links'].count('?') == 0:  # waiting for links necessary
-        if not sighting and not force:
-            return
+    def classify(cls, sp, scan_loc, sighting=None):
 
         # get past sightings
         query = list(cls.select()
@@ -1218,16 +1174,39 @@ class SpawnpointDetectionData(BaseModel):
             # 's' is for seen, 'h' is for hidden
             sp['kind'] = ''.join(['s' if i > (3 - duration / 15) else 'h' for i in range(0, 4)])
 
-        # assume no hidden times, unless proven so below when finding links
+        # assume no hidden times
         sp['links'] = sp['kind'].replace('s', '?')
+
+        if sp['kind'] != 'ssss':
+
+            if not sp['earliest_unseen'] or sp['earliest_unseen'] != sp['latest_seen']:
+
+                # new latest seen will be just before max_gap
+                sp['latest_seen'] = seen_secs[gap_list.index(max_gap)]
+
+                # if we don't have a earliest_unseen yet or the kind of spawn has changed, reset
+                # set to latest_seen + 14 min
+                if not sp['earliest_unseen'] or sp['kind'] != old_kind:
+                    sp['earliest_unseen'] = (sp['latest_seen'] + 14 * 60) % 3600
+
+            return
+
+        # only ssss spawns from here below
+
+        sp['links'] = '+++-'
+        if sp['earliest_unseen'] == sp['latest_seen']:
+            return
 
         # make a sight_list of dicts like
         # {date: first seen time,
         # delta: duration of sighting,
         # same: whether encounter ID was same or different over that time}
 
-        # will be used for 1x60 spawns to find where the new spawn happens,
-        # and for other spawns to determine the links between appearances
+        # for 60 min spawns ('ssss'), the largest gap doesn't give the earliest spawn point,
+        # because a pokemon is always there
+        # use the union of all intervals where the same encounter ID was seen to find the latest_seen
+        # If a different encounter ID was seen, then the complement of that interval was the same
+        # ID, so union that complement as well
 
         sight_list = [{'date': query[i]['scan_time'],
                        'delta': query[i + 1]['scan_time'] - query[i]['scan_time'],
@@ -1235,135 +1214,49 @@ class SpawnpointDetectionData(BaseModel):
                       for i in range(len(query) - 1)
                       if query[i + 1]['scan_time'] - query[i]['scan_time'] < timedelta(hours=1)]
 
-        # for 60 min spawns ('ssss'), the largest gap doesn't give the earliest spawn point,
-        # because a pokemon is always there
-        # use the union of all intervals where the same encounter ID was seen to find the latest_seen
-        # If a different encounter ID was seen, then the complement of that interval was the same
-        # ID, so union that complement as well
-        if sp['kind'] == 'ssss':
-
-            sp['links'] = '+++-'
-            if sp['earliest_unseen'] == sp['latest_seen']:
-                return
-
-            start_end_list = []
-            for s in sight_list:
-                if s['same']:
-                    # get the seconds past the hour for start and end times
-                    start = date_secs(s['date'])
-                    end = (start + int(s['delta'].total_seconds())) % 3600
-
-                else:
-                    # convert diff range to same range by taking the clock complement
-                    start = date_secs(s['date'] + s['delta']) % 3600
-                    end = date_secs(s['date'])
-
-                start_end_list.append([start, end])
-
-            # Take the union of all the ranges
-            while True:
-                # union is list of unions of ranges with the same encounter id
-                union = []
-                for start, end in start_end_list:
-                    if not union:
-                        union.append([start, end])
-                        continue
-                    # cycle through all ranges in union, since it might overlap with any of them
-                    for u in union:
-                        if clock_between(u[0], start, u[1]):
-                            u[1] = end if not(clock_between(u[0], end, u[1])) else u[1]
-                        elif clock_between(u[0], end, u[1]):
-                            u[0] = start if not(clock_between(u[0], start, u[1])) else u[0]
-                        elif union.count([start, end]) == 0:
-                            union.append([start, end])
-
-                # Are no more unions possible?
-                if union == start_end_list:
-                    break
-                else:
-                    start_end_list = union  # Make another pass looking for unions
-
-            # if more than one disparate union, take the largest as our starting point
-            union = reduce(lambda x, y: x if (x[1] - x[0]) % 3600 > (y[1] - y[0]) % 3600 else y,
-                           union, [0, 3600])
-            sp['latest_seen'] = union[1]
-            sp['earliest_unseen'] = union[0]
-            log.info('1x60: appear %d, despawn %d, duration: %d min', union[0], union[1], ((union[1] - union[0]) % 3600) / 60)
-            return
-
-        # only non 'ssss' spawns from here below
-
-        if not sp['earliest_unseen'] or sp['earliest_unseen'] != sp['latest_seen']:
-
-            # new latest seen will be just before max_gap
-            sp['latest_seen'] = seen_secs[gap_list.index(max_gap)]
-
-            # if we don't have a earliest_unseen yet or it's farther than duration min past the earliest_seen
-            # set to latest_seen + 14 min
-            if not sp['earliest_unseen'] or sp['kind'] != old_kind:
-                sp['earliest_unseen'] = (sp['latest_seen'] + 14 * 60) % 3600
-
-        # a 15 min spawn has obvious links, so fill in and return
-        if sp['kind'] == 'hhhs':
-            sp['links'] = 'hhh-'
-            return
-
-        # don't bother checking links until loc fully scanned and we have found the tth
-        if not scan_loc['done'] or sp['earliest_unseen'] != ['latest_seen']:
-            return
-
-        links = sp['kind'].replace('s', '?')
-
-        # + links overwrite - links, e.g. adding ?++? to --?? gives -++?
-        # So do the - sightings first
-
-        sight_list = (sorted(filter(lambda x: not x['same'], sight_list), key=itemgetter('delta')) +
-                      sorted(filter(lambda x: x['same'], sight_list), key=itemgetter('delta'), reverse=True))
-
+        start_end_list = []
         for s in sight_list:
+            if s['same']:
+                # get the seconds past the hour for start and end times
+                start = date_secs(s['date'])
+                end = (start + int(s['delta'].total_seconds())) % 3600
 
-            # get the seconds past the tth time instead of past the hour for start and end times
+            else:
+                # convert diff range to same range by taking the clock complement
+                start = date_secs(s['date'] + s['delta']) % 3600
+                end = date_secs(s['date'])
 
-            # minus 1 second to stop scans exactly on the border between quartiles from rounding into
-            # the next quartile, i.e. tth = 100, s['date'] = 100 would fall in the quartile 1 instead of 0
-            # because it's exactly on the border, and int() rounds to 1
-            start = (date_secs(s['date']) - sp['latest_seen'] + 15 * 60 + 3600 - 1) % 3600
-            end = start + int(s['delta'].total_seconds())
+            start_end_list.append([start, end])
 
-            # Convert to quartiles, with the valid TTH quartile as the 0th quartile
-            start_quartile = int(start / 15 / 60)
-            end_quartile = int(end / 15 / 60) % 4
-
-            # if start and end during the same quartile, move on
-            if start_quartile == end_quartile:
-                continue
-
-            # update each of the four quartiles in links
-            for i in range(0, 4):
-
-                if sp['links'][i] == 'h':
+        # Take the union of all the ranges
+        while True:
+            # union is list of unions of ranges with the same encounter id
+            union = []
+            for start, end in start_end_list:
+                if not union:
+                    union.append([start, end])
                     continue
+                # cycle through all ranges in union, since it might overlap with any of them
+                for u in union:
+                    if clock_between(u[0], start, u[1]):
+                        u[1] = end if not(clock_between(u[0], end, u[1])) else u[1]
+                    elif clock_between(u[0], end, u[1]):
+                        u[0] = start if not(clock_between(u[0], start, u[1])) else u[0]
+                    elif union.count([start, end]) == 0:
+                        union.append([start, end])
 
-                # if out of bounds of the current quartile, move on
-                if not ((start_quartile <= i < end_quartile and start_quartile < end_quartile) or
-                        (not (end_quartile <= i < start_quartile) and start_quartile > end_quartile)):
-                    continue
-
-                links = links[:i] + ('+' if s['same'] else '-') + links[i + 1:]
-
-            if links.count('-') == 1:
-                links = links.replace('?', '+')
-
-            if links.count('?') == 1 and not links.count('-'):
-                links = links.replace('?', '-')
-
-            if not links.count('?') and links.count('-') == 1:
+            # Are no more unions possible?
+            if union == start_end_list:
                 break
+            else:
+                start_end_list = union  # Make another pass looking for unions
 
-        sp['links'] = links
-        log.info('%s, %s', sp['kind'], links)
-
-        return
+        # if more than one disparate union, take the largest as our starting point
+        union = reduce(lambda x, y: x if (x[1] - x[0]) % 3600 > (y[1] - y[0]) % 3600 else y,
+                       union, [0, 3600])
+        sp['latest_seen'] = union[1]
+        sp['earliest_unseen'] = union[0]
+        log.info('1x60: appear %d, despawn %d, duration: %d min', union[0], union[1], ((union[1] - union[0]) % 3600) / 60)
 
     # expand the seen times for 30 minute spawnpoints based on scans when spawn wasn't there
     # return true if spawnpoint dict changed
@@ -1538,6 +1431,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
 
             sp = SpawnPoint.get_by_id(p['spawn_point_id'], p['latitude'], p['longitude'])
             spawn_points[p['spawn_point_id']] = sp
+            sp['missed_count'] = 0
 
             sighting = {
                 'id': b64encode(str(p['encounter_id'])) + '_' + str(now_secs),
@@ -1572,12 +1466,9 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
                     log.warning('Redoing scan of this location to identify new spawnpoint.')
                     ScannedLocation.reset_bands(scan_loc)
 
-            # if (not SpawnPoint.tth_found(sp) or sighting['tth_secs'] or not scan_loc['done'] or
-            #         sp['links'].count('?')):   # removing since no apparent hidden times
             if (not SpawnPoint.tth_found(sp) or sighting['tth_secs'] or not scan_loc['done']):
+                SpawnpointDetectionData.classify(sp, scan_loc, sighting)
                 sightings[p['encounter_id']] = sighting
-
-            SpawnpointDetectionData.classify(sp, scan_loc, sighting)
 
             sp['last_scanned'] = datetime.utcfromtimestamp(p['last_modified_timestamp_ms'] / 1000.0)
 
@@ -1752,8 +1643,8 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
             sp = SpawnPoint.get_by_id(sp_id)
             if SpawnpointDetectionData.unseen(sp, now_secs):
                 spawn_points[sp['id']] = sp
-            endpoints = SpawnPoint.start_end(sp)
-            if (clock_between(endpoints[0], now_secs, endpoints[1]) and not SpawnPoint.hidden(sp, now_secs)):
+            endpoints = SpawnPoint.start_end(sp, args.spawn_delay)
+            if clock_between(endpoints[0], now_secs, endpoints[1]):
                 sp['missed_count'] += 1
                 spawn_points[sp['id']] = sp
                 log.warning('%s kind spawnpoint %s has no pokemon %d times in a row',
@@ -1763,9 +1654,9 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
                 (sp['earliest_unseen'] - sp['latest_seen']) % 3600 < 60):
             log.warning('Spawnpoint %s was unable to locate a TTH, with only %ss after pokemon last seen',
                         sp['id'], (sp['earliest_unseen'] - sp['latest_seen']) % 3600)
-            if sp_id not in sp_id_list:
-                SpawnpointDetectionData.classify(sp, scan_loc, force=True)
             log.info('Embiggening search for TTH by 15 minutes to try again')
+            if sp_id not in sp_id_list:
+                SpawnpointDetectionData.classify(sp, scan_loc)
             sp['latest_seen'] = (sp['latest_seen'] - 60) % 3600
             sp['earliest_unseen'] = (sp['earliest_unseen'] + 14 * 60) % 3600
             spawn_points[sp_id] = sp
