@@ -60,7 +60,8 @@ class Pogom(Flask):
 
     def add_token(self):
         token = request.args.get('token')
-        query = Token.insert(token=token, last_updated=datetime.utcnow())
+        args = get_args()
+        query = Token.insert(token=token, last_updated=datetime.utcnow(), regio=args.status_name)
         query.execute()
         return self.send_static_file('1x1.gif')
 

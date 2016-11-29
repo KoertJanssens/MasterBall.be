@@ -845,7 +845,8 @@ def token_request(args, status, url, whq):
                 token = str(s.get(url).text)
             else:
                 # single instance, get Token directly
-                token = Token.get_match(request_time)
+                priority_regio = args.status_name
+                token = Token.get_match(request_time,priority_regio)
                 if token is not None:
                     token = token.token
                 else:
