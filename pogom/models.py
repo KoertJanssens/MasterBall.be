@@ -1460,7 +1460,7 @@ class Token(flaskDb.Model):
         with flaskDb.database.transaction():
             d_token = (Token
                        .select()
-                       .where(Token.last_updated >= request_time)
+                       #.where(Token.last_updated >= request_time)
                        .order_by(Token.last_updated)
                        .first())
             if d_token is not None:
