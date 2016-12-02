@@ -667,7 +667,7 @@ class SpeedScan(HexSearch):
                 found_percent = self.spawns_found * 100.0 / sum if sum else 0
                 log.info('%d spawns scanned and %d spawns were not there when expected for %.1f%%',
                          self.spawns_found, spawns_missed, found_percent)
-                self.spawn_percent.append(found_percent)
+                self.spawn_percent.append(round(found_percent, 1))
                 if self.spawns_missed_delay:
                     log.warning('Missed spawn IDs with times after spawn:')
                     log.warning(self.spawns_missed_delay)
@@ -677,7 +677,7 @@ class SpeedScan(HexSearch):
             good_percent = self.scans_done * 100.0 / sum if sum else 0
             log.info('%d scans successful and %d scans missed for %.1f%% found',
                      self.scans_done, len(self.scans_missed_list), good_percent)
-            self.scan_percent.append(good_percent)
+            self.scan_percent.append(round(good_percent, 1))
             if self.scans_missed_list:
                 log.warning('Missed scans: %s', Counter(self.scans_missed_list).most_common(3))
             log.info('History: %s', str(self.scan_percent).strip('[]'))
