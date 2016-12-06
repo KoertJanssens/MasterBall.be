@@ -37,6 +37,7 @@ class Pogom(Flask):
         self.route("/stats", methods=['GET'])(self.get_stats)
         self.route("/status", methods=['GET'])(self.get_status)
         self.route("/status", methods=['POST'])(self.post_status)
+	self.route("/gym_data", methods=['GET'])(self.get_gymdata)
         self.route("/inject.js", methods=['GET'])(self.render_inject_js)
         self.route("/add_token", methods=['GET'])(self.add_token)
         self.route("/get_token", methods=['GET'])(self.get_token)
@@ -387,6 +388,12 @@ class Pogom(Flask):
                                gmaps_key=config['GMAPS_KEY'],
                                valid_input=self.get_valid_stat_input()
                                )
+
+    def get_gymdata(self):
+        gym_id = request.args.get('id')
+        gym = Gym.get_gym(gym_id)
+
+        return jsonify(gym)
 
     def get_status(self):
         args = get_args()
