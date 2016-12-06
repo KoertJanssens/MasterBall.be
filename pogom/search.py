@@ -837,7 +837,7 @@ def token_request(args, status, url, whq):
         token_needed += 1
         if args.webhooks:
             whq.put(('token_needed', {"num": token_needed}))
-            if token_needed>=0.3*args.workers:
+            if token_needed>=5 and token_needed>=0.8*args.workers:
                 whq.put(('captcha', {'account': 'MasterBall', 'status': 'kurt', 'token_needed': token_needed}))
         while request_time + timedelta(seconds=args.manual_captcha_solving_allowance_time) > datetime.utcnow():
             tokenLock.acquire()
