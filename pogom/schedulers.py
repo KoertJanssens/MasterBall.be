@@ -582,7 +582,7 @@ class SpeedScan(HexSearch):
         except Exception as e:
             log.error('Exception in band_status: Exception message: {}'.format(e))
 
-    # Update the queue, and provide a report on performance of last 9 minutes
+    # Update the queue, and provide a report on performance of last minutes
     def schedule(self):
         log.info('Refreshing queue')
         self.ready = False
@@ -636,6 +636,7 @@ class SpeedScan(HexSearch):
                      len(spawnpoints) - active_sp, (len(spawnpoints) - active_sp) * 100.0 / len_spawnpoints)
             log.info('Active Spawn Points found in hex: %d or %.1f%%',
                      active_sp, active_sp * 100.0 / len_spawnpoints)
+            active_sp += active_sp == 0
             for k in sorted(kinds.keys()):
                 log.info('%s kind spawns: %d or %.1f%%', k, kinds[k], kinds[k] * 100.0 / active_sp)
             log.info('Spawns with found TTH: %d or %.1f%%', tth_found, tth_found * 100.0 / active_sp)
@@ -799,7 +800,7 @@ class SpeedScan(HexSearch):
             safety_buffer = item['end'] - seconds_within_band
 
             if safety_buffer < 0:
-                log.warning('Too late by %d sec', -safety_buffer)
+                log.warning('Too late by %d sec for a %s at step %d', -safety_buffer, item['kind'], item['step'])
 
             # If we had a 0/0/0 scan, then unmark as done so we can retry, and save for Statistics
             elif parsed['bad_scan']:

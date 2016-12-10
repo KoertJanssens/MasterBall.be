@@ -12,7 +12,7 @@ import geopy
 import math
 from peewee import SqliteDatabase, InsertQuery, Check, CompositeKey, \
     IntegerField, CharField, DoubleField, BooleanField, \
-    DateTimeField, fn, DeleteQuery, CompositeKey, FloatField, SQL, TextField, JOIN
+    DateTimeField, fn, DeleteQuery, FloatField, SQL, TextField, JOIN
 from playhouse.flask_utils import FlaskDB
 from playhouse.pool import PooledMySQLDatabase
 from playhouse.shortcuts import RetryOperationalError
@@ -24,8 +24,8 @@ from cachetools import cached
 
 from . import config
 from .utils import get_pokemon_name, get_pokemon_rarity, get_pokemon_types, get_args, \
-    cellid, in_radius, date_secs, clock_between, secs_between, \
-    get_move_name, get_move_damage, get_move_energy, get_move_type
+    cellid, in_radius, date_secs, clock_between, secs_between, get_move_name, get_move_damage, \
+    get_move_energy, get_move_type
 from .transform import transform_from_wgs_to_gcj, get_new_coords
 from .customLog import printPokemon
 log = logging.getLogger(__name__)
@@ -1100,8 +1100,8 @@ class SpawnPoint(BaseModel):
 
             sp = SpawnPoint.get_by_id(sp_id)
 
-            #if sp['missed_count'] > 5:
-            #    continue
+            if sp['missed_count'] > 5:
+                continue
 
             endpoints = SpawnPoint.start_end(sp, scan_delay)
             cls.add_if_not_scanned('spawn', l, sp, scan, endpoints[0], endpoints[1], now_date, now_secs)
@@ -1448,7 +1448,7 @@ def hex_bounds(center, steps=None, radius=None):
 
 
 # todo: this probably shouldn't _really_ be in "models" anymore, but w/e
-def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, api, status):
+def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, api, now_date):
     pokemons = {}
     pokestops = {}
     gyms = {}
@@ -1462,7 +1462,6 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
     sightings = {}
     new_spawn_points = []
     sp_id_list = []
-    now_date = status['last_scan_date']
     now_secs = date_secs(now_date)
 
     # consolidate the individual lists in each cell into one list of pokemon and a list of forts
@@ -1554,6 +1553,9 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
 
             seconds_until_despawn = (SpawnPoint.start_end(sp)[1] - now_secs) % 3600
             disappear_time = now_date + timedelta(seconds=seconds_until_despawn)
+
+            if seconds_until_despawn < 5 * 60:
+                pass
 
             printPokemon(p['pokemon_data']['pokemon_id'], p['latitude'], p['longitude'], disappear_time)
 
