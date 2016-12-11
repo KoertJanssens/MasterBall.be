@@ -748,7 +748,8 @@ class SpeedScan(HexSearch):
 
             # Bands are top priority to find new spawns first
             #score = 1e12 if item['kind'] == 'band' else (1e6 if item['kind'] == 'TTH' else 1)
-            score = 1e12 if item['kind']=='spawn' else 1
+            #score = 1e12 if item['kind']=='spawn' else 1
+            score = 1
 
             # For spawns, score is purely based on how close they are to last worker position
             score = score / (distance + .01)
