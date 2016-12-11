@@ -1078,6 +1078,9 @@ class SpawnPoint(BaseModel):
         links_arg = links
         links = links if links else str(sp['links'])
 
+        if links == '????':  # clean up for old data
+            links = str(sp['kind'].replace('s', '?'))
+
         # make some assumptions if link not fully identified
         if links.count('-') == 0:
             links = links[:-1] + '-'

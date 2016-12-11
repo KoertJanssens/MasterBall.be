@@ -689,8 +689,8 @@ class SpeedScan(HexSearch):
                 self.scan_percent.append(round(good_percent, 1))
                 if self.scans_missed_list:
                     log.warning('Missed scans: %s', Counter(self.scans_missed_list).most_common(3))
-                log.info('History: %s', str(self.scan_percent).strip('[]'))
-                self.status_message = 'Initial scan: {:.2f}%, TTH found: {:.2f}%, '.format(band_percent, tth_found * 100.0 / (active_sp + (active_sp == 0)))
+                    log.info('History: %s', str(self.scan_percent).strip('[]'))
+                self.status_message = 'Initial scan: {:.2f}%, TTH found: {:.2f}%, '.format(band_percent, tth_found * 100.0 / active_sp)
                 self.status_message += 'Spawns reached: {:.2f}%, Spawns found: {:.2f}%, Good scans {:.2f}%'\
                     .format(spawns_reached, found_percent, good_percent)
                 self._stat_init()
@@ -783,7 +783,7 @@ class SpeedScan(HexSearch):
         if equi_rect_distance(loc, worker_loc) > (now_date - last_action).total_seconds() * self.args.kph / 3600:
 
             messages['wait'] = 'Moving {}m to step {} for a {}'.format(
-                int(equi_rect_distance(loc, worker_loc) / 1000), step, best['kind'])
+                int(equi_rect_distance(loc, worker_loc) * 1000), step, best['kind'])
             return -1, 0, 0, 0, messages
 
         prefix += ' Step %d,' % (step)

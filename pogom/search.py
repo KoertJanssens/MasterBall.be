@@ -397,7 +397,7 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb, db_updat
 
 
 # Generates the list of locations to scan
-def generate_hive_locations(current_location, step_distance, step_limit, worker_count):
+def generate_hive_locations(current_location, step_distance, step_limit, hive_count):
     NORTH = 0
     EAST = 90
     SOUTH = 180
@@ -413,7 +413,7 @@ def generate_hive_locations(current_location, step_distance, step_limit, worker_
     loc = current_location
     ring = 1
 
-    while len(results) < worker_count:
+    while len(results) < hive_count:
 
         loc = get_new_coords(loc, ydist * (step_limit - 1), NORTH)
         loc = get_new_coords(loc, xdist * (1.5 * step_limit - 0.5), EAST)
@@ -605,8 +605,9 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                 log.info(status['message'])
 
                 # Make the actual request. (finally!)
-                status['last_scan_date'] = datetime.utcnow()
+                scan_date = datetime.utcnow()
                 response_dict = map_request(api, step_location, args.jitter)
+                status['last_scan_date'] = datetime.utcnow()
 
                 # Record the time and place the worker made the request at
                 status['latitude'] = step_location[0]
@@ -645,16 +646,17 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                                 if 'success' in response['responses']['VERIFY_CHALLENGE']:
                                     status['message'] = "Account {} successfully uncaptcha'd".format(account['username'])
                                     log.info(status['message'])
-                                    status['last_scan_date'] = datetime.utcnow()
+                                    scan_date = datetime.utcnow()
                                     # Make another request for the same coordinate since the previous one was captcha'd
                                     response_dict = map_request(api, step_location, args.jitter)
+                                    status['last_scan_date'] = datetime.utcnow()
                                 else:
                                     status['message'] = "Account {} failed verifyChallenge, putting away account for now".format(account['username'])
                                     log.info(status['message'])
                                     account_failures.append({'account': account, 'last_fail_time': now(), 'reason': 'catpcha failed to verify'})
                                     break
 
-                    parsed = parse_map(args, response_dict, step_location, dbq, whq, api, status['last_scan_date'])
+                    parsed = parse_map(args, response_dict, step_location, dbq, whq, api, scan_date)
                     scheduler.task_done(status, parsed)
                     if parsed['count'] > 0:
                         status['success'] += 1
