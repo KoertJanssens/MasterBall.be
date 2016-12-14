@@ -420,7 +420,7 @@ class SpeedScan(HexSearch):
         self.scans_done = 0
         self.scans_missed = 0
         self.scans_missed_list = []
-        self.minutes = 5  # Minutes between scan updates. Should be less than 10 to allow for new bands
+        self.minutes = 5  # Minutes between queue refreshes. Should be less than 10 to allow for new bands during Initial scan
         self.found_percent = []
         self.scan_percent = []
         self.spawn_percent = []

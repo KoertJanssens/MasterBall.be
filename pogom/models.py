@@ -10,7 +10,8 @@ import gc
 import time
 import geopy
 import math
-from peewee import SqliteDatabase, InsertQuery, Check, CompositeKey, \
+from peewee import SqliteDatabase, InsertQuery, \
+    Check, CompositeKey, \
     IntegerField, CharField, DoubleField, BooleanField, \
     DateTimeField, fn, DeleteQuery, FloatField, SQL, TextField, JOIN
 from playhouse.flask_utils import FlaskDB
