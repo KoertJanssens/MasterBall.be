@@ -1957,9 +1957,14 @@ def bulk_upsert(cls, data, db):
             # Turn off FOREIGN_KEY_CHECKS on MySQL, because it apparently is unable
             # to recognize strings to update unicode keys for foriegn key fields,
             # thus giving lots of foreign key constraint errors
-            db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
+            if args.db_type == 'mysql':
+                db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
+
             InsertQuery(cls, rows=data.values()[i:min(i + step, num_rows)]).upsert().execute()
-            db.execute_sql('SET FOREIGN_KEY_CHECKS=1;')
+
+            if args.db_type == 'mysql':
+                db.execute_sql('SET FOREIGN_KEY_CHECKS=1;')
+
         except Exception as e:
             # if there is a DB table constraint error, dump the data and don't retry
             # unrecoverable error strings:
