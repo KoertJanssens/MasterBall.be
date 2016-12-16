@@ -1489,6 +1489,9 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
         log.info("Common causes: not using -speed, deleting or dropping the WorkerStatus table without waiting before restarting, or there really aren't any pokemon in 200m")
 
     scan_loc = ScannedLocation.get_by_loc(step_location)
+    done_already = scan_loc['done']
+    ScannedLocation.update_band(scan_loc)
+    just_completed = not done_already and scan_loc['done']
 
     if len(wild_pokemon):
         encounter_ids = [b64encode(str(p['encounter_id'])) for p in wild_pokemon]
@@ -1524,8 +1527,12 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
                 if sp['latest_seen'] != sp['earliest_unseen']:
                     log.info('TTH found for spawnpoint %s', sp['id'])
                     sighting['tth_secs'] = d_t_secs
-                sp['latest_seen'] = d_t_secs
-                sp['earliest_unseen'] = d_t_secs
+
+                    # only update when TTH is seen for the first time
+                    # just before pokemon migrations, Niantic sets all TTH to the exact time of the migration
+                    # not the normal despawn time
+                    sp['latest_seen'] = d_t_secs
+                    sp['earliest_unseen'] = d_t_secs
 
             scan_spawn_points[scan_loc['cellid'] + sp['id']] = {'spawnpoint': sp['id'],
                                                                 'scannedlocation': scan_loc['cellid']}
@@ -1535,12 +1542,12 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
 
                 # if we found a new spawnpoint after the location was already fully scanned
                 # either it's new, or we had a bad scan. Either way, rescan the loc
-                if scan_loc['done']:
+                if scan_loc['done'] and not just_completed:
                     log.warning('Location was fully scanned, and yet a brand new spawnpoint found.')
                     log.warning('Redoing scan of this location to identify new spawnpoint.')
                     ScannedLocation.reset_bands(scan_loc)
 
-            if (not SpawnPoint.tth_found(sp) or sighting['tth_secs'] or not scan_loc['done']):
+            if (not SpawnPoint.tth_found(sp) or sighting['tth_secs'] or not scan_loc['done'] or just_completed):
                 SpawnpointDetectionData.classify(sp, scan_loc, now_secs, sighting)
                 sightings[p['encounter_id']] = sighting
 
@@ -1551,7 +1558,8 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
                 skipped += 1
                 continue
 
-            seconds_until_despawn = (SpawnPoint.start_end(sp)[1] - now_secs) % 3600
+            start_end = SpawnPoint.start_end(sp, 1)
+            seconds_until_despawn = (start_end[1] - now_secs) % 3600
             disappear_time = now_date + timedelta(seconds=seconds_until_despawn)
 
             printPokemon(p['pokemon_data']['pokemon_id'], p['latitude'], p['longitude'], disappear_time)
@@ -1733,8 +1741,6 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue, a
             sp['latest_seen'] = (sp['latest_seen'] - 60) % 3600
             sp['earliest_unseen'] = (sp['earliest_unseen'] + 14 * 60) % 3600
             spawn_points[sp['id']] = sp
-
-    ScannedLocation.update_band(scan_loc)  # updating here so the last scan data isn't ignored by 'done'
 
     db_update_queue.put((ScannedLocation, {0: scan_loc}))
 
