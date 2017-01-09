@@ -744,6 +744,28 @@ class ScannedLocation(BaseModel):
     def _q_init(scan, start, end, kind, sp_id=None):
         return {'loc': scan['loc'], 'kind': kind, 'start': start, 'end': end, 'step': scan['step'], 'sp': sp_id}
 
+    @classmethod
+    def get_by_locs(cls, locs):
+        lats = [loc[0] for loc in locs]
+        lons = [loc[1] for loc in locs]
+        query = (cls
+                 .select()
+                 .where((ScannedLocation.latitude << lats) &
+                        (ScannedLocation.longitude << lons))
+                 .dicts())
+
+        d = {}
+        for sl in list(query):
+            key = "{},{}".format(sl['latitude'], sl['longitude'])
+            d[key] = sl
+
+        return d
+
+    @classmethod
+    def find_in_locs(cls, loc, locs):
+        key = "{},{}".format(loc[0], loc[1])
+        return locs[key] if key in locs else cls.new_loc(loc)
+
     # return value of a particular scan from loc, or default dict if not found
     @classmethod
     def get_by_loc(cls, loc):
@@ -784,6 +806,23 @@ class ScannedLocation(BaseModel):
         return list(query)
 
     # return list of dicts for upcoming valid band times
+    @classmethod
+    def get_cell_to_linked_spawn_points(cls, cells):
+        query = (SpawnPoint
+                 .select(SpawnPoint, cls.cellid)
+                 .join(ScanSpawnPoint)
+                 .join(cls)
+                 .where(cls.cellid << cells).dicts())
+        l = list(query)
+        ret = {}
+        for item in l:
+            if item['cellid'] not in ret:
+                ret[item['cellid']] = []
+            ret[item['cellid']].append(item)
+
+        return ret
+
+    # return list of dicts for upcoming valid band times
     @staticmethod
     def visible_forts(step_location):
         distance = 0.9
@@ -800,8 +839,8 @@ class ScannedLocation(BaseModel):
 
     # return list of dicts for upcoming valid band times
     @classmethod
-    def get_times(cls, scan, now_date):
-        s = cls.get_by_loc(scan['loc'])
+    def get_times(cls, scan, now_date, scanned_locations):
+        s = cls.find_in_locs(scan['loc'], scanned_locations)
         if s['done']:
             return []
 
@@ -1093,16 +1132,18 @@ class SpawnPoint(BaseModel):
 
     # Return a list of dicts with the next spawn times
     @classmethod
-    def get_times(cls, cell, scan, now_date, scan_delay):
+    def get_times(cls, cell, scan, now_date, scan_delay, cell_to_linked_spawn_points, sp_by_id):
         l = []
         now_secs = date_secs(now_date)
-        for sp in ScannedLocation.linked_spawn_points(cell):
+        linked_spawn_points = cell_to_linked_spawn_points[cell] if cell in cell_to_linked_spawn_points else []
+
+        for sp in linked_spawn_points:
 
             if sp['missed_count'] > 5:
                 continue
 
             endpoints = SpawnPoint.start_end(sp, scan_delay)
-            cls.add_if_not_scanned('spawn', l, sp, scan, endpoints[0], endpoints[1], now_date, now_secs)
+            cls.add_if_not_scanned('spawn', l, sp, scan, endpoints[0], endpoints[1], now_date, now_secs, sp_by_id)
 
             # check to see if still searching for valid TTH
             if cls.tth_found(sp):
@@ -1112,12 +1153,12 @@ class SpawnPoint(BaseModel):
             start = sp['latest_seen'] + scan_delay
             end = sp['earliest_unseen']
 
-            cls.add_if_not_scanned('TTH', l, sp, scan, start, end, now_date, now_secs)
+            cls.add_if_not_scanned('TTH', l, sp, scan, start, end, now_date, now_secs, sp_by_id)
 
         return l
 
     @classmethod
-    def add_if_not_scanned(cls, kind, l, sp, scan, start, end, now_date, now_secs):
+    def add_if_not_scanned(cls, kind, l, sp, scan, start, end, now_date, now_secs, sp_by_id):
         # make sure later than now_secs
         while end < now_secs:
             start, end = start + 3600, end + 3600
@@ -1126,7 +1167,8 @@ class SpawnPoint(BaseModel):
         while start > end:
             start -= 3600
 
-        if (now_date - cls.get_by_id(sp['id'])['last_scanned']).total_seconds() > now_secs - start:
+        last_scanned = sp_by_id[sp['id']]['last_scanned']
+        if (now_date - last_scanned).total_seconds() > now_secs - start:
             l.append(ScannedLocation._q_init(scan, start, end, kind, sp['id']))
 
     # given seconds after the hour and a spawnpoint dict, return which quartile of the
