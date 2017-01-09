@@ -1426,7 +1426,10 @@ class Token(flaskDb.Model):
         with flaskDb.database.transaction():
             d_token = (Token
                        .select()
-                       .where((Token.last_updated >= request_time) & ((((Token.last_updated + timedelta(seconds=10)) < datetime.utcnow()) & (Token.regio == priority_regio)) | ((Token.last_updated + timedelta(seconds=30)) < datetime.utcnow())))
+                       .where((Token.last_updated >= request_time) & 
+                              (((Token.last_updated < (datetime.utcnow() - timedelta(seconds=10))) 
+                                & (Token.regio == priority_regio)) 
+                               | (Token.last_updated < (datetime.utcnow() - timedelta(seconds=30)))))
                        .order_by(Token.last_updated)
                        .first())
             if d_token is not None:
