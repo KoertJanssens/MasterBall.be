@@ -1427,7 +1427,7 @@ class Token(flaskDb.Model):
             d_token = (Token
                        .select()
                        .where((Token.last_updated >= request_time) & 
-                              (((Token.last_updated < (datetime.utcnow() - timedelta(seconds=10))) 
+                              (((Token.last_updated < (datetime.utcnow() - timedelta(seconds=0))) 
                                 & (Token.regio == priority_regio)) 
                                | (Token.last_updated < (datetime.utcnow() - timedelta(seconds=30)))))
                        .order_by(Token.last_updated)
