@@ -633,15 +633,15 @@ function notifyText (item) {
   var perfection = getIv(item)
   var ivtext = perfection.toFixed(1) + '% (' + item['individual_attack'] + '/' + item['individual_defense'] + '/' + item['individual_stamina'] + ')'
   var dtime = new Date(item['disappear_time'])
-  var distext = '0' + dtime.getHours().slice(-2)
+  var distext = '0' + dtime.getHours().toString().slice(-2)
   distext += ':'
-  distext += '0' + dtime.getMinutes().slice(-2)
+  distext += '0' + dtime.getMinutes().toString().slice(-2)
   distext += ':'
-  distext += '0' + dtime.getSeconds().slice(-2)
+  distext += '0' + dtime.getSeconds().toString().slice(-2)
   var until = getTimeUntil(item['disappear_time'])
   var untiltext = '('
   untiltext += (until.hour > 0) ? until.hour + ':' : ''
-  untiltext += ('0' + until.min).slice(-2) + 'm' + ('0' + until.sec).slice(-2) + 's' + ')'
+  untiltext += ('0' + until.min).toString().slice(-2) + 'm' + ('0' + until.sec).toString().slice(-2) + 's' + ')'
 
   return {
     'fav_title': item['pokemon_name'] + ' ' + ivtext,
