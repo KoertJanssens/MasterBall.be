@@ -633,11 +633,11 @@ function notifyText (item) {
   var perfection = getIv(item)
   var ivtext = perfection.toFixed(1) + '% (' + item['individual_attack'] + '/' + item['individual_defense'] + '/' + item['individual_stamina'] + ')'
   var dtime = new Date(item['disappear_time'])
-  var distext = '0' + dtime.getHours().toString().slice(-2)
+  var distext = ('0' + dtime.getHours()).toString().slice(-2)
   distext += ':'
-  distext += '0' + dtime.getMinutes().toString().slice(-2)
+  distext += ('0' + dtime.getMinutes()).toString().slice(-2)
   distext += ':'
-  distext += '0' + dtime.getSeconds().toString().slice(-2)
+  distext += ('0' + dtime.getSeconds()).toString().slice(-2)
   var until = getTimeUntil(item['disappear_time'])
   var untiltext = '('
   untiltext += (until.hour > 0) ? until.hour + ':' : ''
