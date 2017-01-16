@@ -1037,7 +1037,8 @@ def calc_distance(pos1, pos2):
 def stagger_thread(args, account):
     if args.accounts.index(account) == 0:
         return  # No need to delay the first one.
-    delay = 1 + args.login_delay * random.random()
+    delay = args.accounts.index(
+        account) * args.login_delay % 60 + ((random.random() - .5) / 2)
     log.debug('Delaying thread startup for %.2f seconds...', delay)
     time.sleep(delay)
 
