@@ -864,7 +864,7 @@ class ScannedLocation(BaseModel):
 
         return list(query)
 
-    # return list of dicts for upcoming valid band times
+    # Return list of dicts for upcoming valid band times.
     @classmethod
     def get_cell_to_linked_spawn_points(cls, cells):
         query = (SpawnPoint
@@ -1216,7 +1216,8 @@ class SpawnPoint(BaseModel):
                 continue
 
             endpoints = SpawnPoint.start_end(sp, scan_delay)
-            cls.add_if_not_scanned('spawn', l, sp, scan, endpoints[0], endpoints[1], now_date, now_secs, sp_by_id)
+            cls.add_if_not_scanned('spawn', l, sp, scan, endpoints[
+                                   0], endpoints[1], now_date, now_secs, sp_by_id)
 
             # Check to see if still searching for valid TTH.
             if cls.tth_found(sp):
@@ -1226,13 +1227,15 @@ class SpawnPoint(BaseModel):
             start = sp['latest_seen'] + scan_delay
             end = sp['earliest_unseen']
 
-            cls.add_if_not_scanned('TTH', l, sp, scan, start, end, now_date, now_secs, sp_by_id)
+            cls.add_if_not_scanned(
+                'TTH', l, sp, scan, start, end, now_date, now_secs, sp_by_id)
 
         return l
 
     @classmethod
-    def add_if_not_scanned(cls, kind, l, sp, scan, start, end, now_date, now_secs, sp_by_id):
-        # make sure later than now_secs
+    def add_if_not_scanned(cls, kind, l, sp, scan, start, end, now_date,
+                           now_secs, sp_by_id):
+        # Make sure later than now_secs.
         while end < now_secs:
             start, end = start + 3600, end + 3600
 

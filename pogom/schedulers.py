@@ -656,7 +656,8 @@ class SpeedScan(HexSearch):
 
         for cell, scan in self.scans.iteritems():
             queue += ScannedLocation.get_times(scan, now_date, scanned_locations)
-            queue += SpawnPoint.get_times(cell, scan, now_date, self.args.spawn_delay, cell_to_linked_spawn_points, sp_by_id)
+            queue += SpawnPoint.get_times(cell, scan, now_date, self.args.spawn_delay,
+                                          cell_to_linked_spawn_points, sp_by_id)
         end = time.time()
 
         queue.sort(key=itemgetter('start'))
