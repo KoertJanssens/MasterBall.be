@@ -204,8 +204,10 @@ def status_printer(threadStatus, search_items_queue_array, db_updates_queue, wh_
 
                     status_text.append(
                         status.format(item, time.strftime('%H:%M', time.localtime(threadStatus[item]['starttime'])),
-                                      threadStatus[item]['username'], threadStatus[item]['proxy_display'],
-                                      threadStatus[item]['success'], threadStatus[item]['fail'], threadStatus[item]['noitems'],
+                                      threadStatus[item]['username'], threadStatus[
+                                          item]['proxy_display'],
+                                      threadStatus[item]['success'], threadStatus[
+                                          item]['fail'], threadStatus[item]['noitems'],
                                       threadStatus[item]['skip'], threadStatus[item]['captcha'], threadStatus[item]['message']))
 
         elif display_type[0] == 'failedaccounts':
@@ -511,10 +513,13 @@ def update_total_stats(threadStatus, last_account_status):
             current_accounts.add(username)
             last_status = last_account_status.get(username, {})
             overseer['skip_total'] += stat_delta(tstatus, last_status, 'skip')
-            overseer['captcha_total'] += stat_delta(tstatus, last_status, 'captcha')
-            overseer['empty_total'] += stat_delta(tstatus, last_status, 'noitems')
+            overseer[
+                'captcha_total'] += stat_delta(tstatus, last_status, 'captcha')
+            overseer[
+                'empty_total'] += stat_delta(tstatus, last_status, 'noitems')
             overseer['fail_total'] += stat_delta(tstatus, last_status, 'fail')
-            overseer['success_total'] += stat_delta(tstatus, last_status, 'success')
+            overseer[
+                'success_total'] += stat_delta(tstatus, last_status, 'success')
             last_account_status[username] = copy.deepcopy(tstatus)
 
     overseer['active_accounts'] = usercount
@@ -806,12 +811,12 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                 # todo's to db/wh queues.
                 try:
                     # Captcha check.
-                    if args.captcha_solving:
-                        captcha_url = response_dict['responses'][
-                            'CHECK_CHALLENGE']['challenge_url']
-                        if len(captcha_url) > 1:
-			    status['captcha'] += 1
-                            if args.captcha_key is not None:
+                    captcha_url = response_dict['responses'][
+                        'CHECK_CHALLENGE']['challenge_url']
+                    if len(captcha_url) > 1:
+                        status['captcha'] += 1
+                        if args.captcha_solving:
+			    if args.captcha_key is not None:
                                 status['message'] = 'Account {} is encountering a captcha, starting 2captcha sequence'.format(account['username'])
                             else:
                                 status['message'] = 'Account {} is encountering a captcha, starting manual captcha solving'.format(account['username'])
@@ -843,15 +848,22 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                                         api, step_location, args.no_jitter)
                                     status['last_scan_date'] = datetime.utcnow()
                                 else:
-                                    status['message'] = "Account {} failed verifyChallenge, putting away account for now.".format(account[
+                                    status['message'] = 'Account {} failed verifyChallenge, putting away account for now.'.format(account[
                                                                                                                                   'username'])
                                     log.info(status['message'])
                                     account_failures.append({'account': account, 'last_fail_time': now(
                                     ), 'reason': 'captcha failed to verify'})
                                     break
+                        else:
+                            status['message'] = "Account {} has encountered a captcha, putting away account for now.".format(account[
+                                                                                                                             'username'])
+                            log.info(status['message'])
+                            account_failures.append(
+                                {'account': account, 'last_fail_time': now(), 'reason': 'captcha found'})
+                            break
 
-                    parsed = parse_map(args, response_dict,
-                                       step_location, dbq, whq, api, scan_date)
+                    parsed = parse_map(
+                        args, response_dict, step_location, dbq, whq, api, scan_date, scheduler)
                     scheduler.task_done(status, parsed)
                     if parsed['count'] > 0:
                         status['success'] += 1
@@ -935,7 +947,8 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                         log.debug(status['message'])
 
                         if gym_responses:
-                            parse_gyms(args, gym_responses, whq, dbq)
+                            parse_gyms(args, gym_responses,
+                                       whq, dbq, scheduler)
 
                 # Delay the desired amount after "scan" completion.
                 delay = scheduler.delay(status['last_scan_date'])
