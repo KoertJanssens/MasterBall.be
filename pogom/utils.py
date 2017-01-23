@@ -237,6 +237,9 @@ def get_args():
                         help='Factor (in seconds) by which the delay until next retry will increase.', type=float, default=0.25)
     parser.add_argument('-whlfu', '--wh-lfu-size',
                         help='Webhook LFU cache max size.', type=int, default=1000)
+    parser.add_argument('-whsu', '--webhook-scheduler-updates',
+                        help='Send webhook updates with scheduler status (use with -wh).',
+                        action='store_true', default=True)
     parser.add_argument('--ssl-certificate',
                         help='Path to SSL certificate file.')
     parser.add_argument('--ssl-privatekey',
@@ -460,6 +463,10 @@ def get_args():
         else:
             args.scheduler = 'HexSearch'
 
+        # Disable webhook scheduler updates if webhooks are disabled
+        if args.webhooks is None:
+            args.webhook_scheduler_updates = False
+
     return args
 
 
@@ -638,7 +645,7 @@ def complete_tutorial(api, account, tutorial_state):
             'shirt': random.randint(1, 3),
             'pants': random.randint(1, 2),
             'shoes': random.randint(1, 6),
-            'gender': random.randint(0, 1),
+            'avatar': random.randint(0, 1),
             'eyes': random.randint(1, 4),
             'backpack': random.randint(1, 5)
         })
@@ -723,5 +730,6 @@ def complete_tutorial(api, account, tutorial_state):
         request.call()
         time.sleep(random.uniform(0.8, 1.8))
 
-    time.sleep(0.2)
+    # Sleeping before we start scanning to avoid Niantic throttling.
+    time.sleep(random.uniform(2, 4))
     return True

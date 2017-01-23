@@ -56,6 +56,7 @@ TIMESTAMP = '\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\00
 token_needed = 0
 
 tokenLock = Lock()
+loginDelayLock = Lock()
 
 
 # Apply a location jitter.
@@ -322,7 +323,8 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb, db_updat
         'success_total': 0,
         'fail_total': 0,
         'empty_total': 0,
-        'scheduler': args.scheduler
+        'scheduler': args.scheduler,
+        'scheduler_status': {'tth_found': 0}
     }
 
     if(args.print_status):
@@ -466,8 +468,32 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb, db_updat
                 log.info(get_stats_message(threadStatus))
                 stats_timer = 0
 
+        # Send webhook updates when scheduler status changes.
+        if args.webhook_scheduler_updates:
+            wh_status_update(args, threadStatus['Overseer'], wh_queue,
+                             scheduler_array[0])
+
         # Now we just give a little pause here.
         time.sleep(1)
+
+
+def wh_status_update(args, status, wh_queue, scheduler):
+    scheduler_name = status['scheduler']
+    if args.speed_scan:
+        tth_found = getattr(scheduler, 'tth_found', -1)
+        spawns_found = getattr(scheduler, 'spawns_found', 0)
+        if tth_found > -1:
+            # Avoid division by zero. Keep 0.0 default for consistency.
+            active_sp = max(getattr(scheduler, 'active_sp', 0.0), 1.0)
+            tth_found = tth_found * 100.0 / float(active_sp)
+
+        if (tth_found - status['scheduler_status']['tth_found']) > 0.01:
+            log.debug("Scheduler update is due, sending webhook message.")
+            wh_queue.put(('scheduler', {'name': scheduler_name,
+                                        'instance': args.status_name,
+                                        'tth_found': tth_found,
+                                        'spawns_found': spawns_found}))
+            status['scheduler_status']['tth_found'] = tth_found
 
 
 def get_stats_message(threadStatus):
@@ -627,7 +653,7 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
             status['skip'] = 0
             status['captcha'] = 0
 
-            stagger_thread(args, account)
+            stagger_thread(args)
 
             # Sleep when consecutive_fails reaches max_failures, overall fails
             # for stat purposes.
@@ -780,7 +806,12 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                         tutorial_state = get_tutorial_state(api)
 
                         if not all(x in tutorial_state for x in (0, 1, 3, 4, 7)):
+                            log.debug(
+                                'Completing tutorial steps for %s.', account['username'])
                             complete_tutorial(api, account, tutorial_state)
+                        else:
+                            log.debug(
+                                'Account %s has completed tutorial.', account['username'])
 
                 # Putting this message after the check_login so the messages
                 # aren't out of order.
@@ -863,7 +894,7 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                             break
 
                     parsed = parse_map(
-                        args, response_dict, step_location, dbq, whq, api, scan_date, scheduler)
+                        args, response_dict, step_location, dbq, whq, api, scan_date)
                     scheduler.task_done(status, parsed)
                     if parsed['count'] > 0:
                         status['success'] += 1
@@ -891,10 +922,10 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
                     # Build a list of gyms to update.
                     gyms_to_update = {}
                     for gym in parsed['gyms'].values():
-                        # Can only get gym details within 1km of our position.
+                        # Can only get gym details within 450m of our position.
                         distance = calc_distance(
                             step_location, [gym['latitude'], gym['longitude']])
-                        if distance < 1:
+                        if distance < 0.45:
                             # Check if we already have details on this gym.
                             # Get them if not.
                             try:
@@ -948,7 +979,7 @@ def search_worker_thread(args, account_queue, account_failures, search_items_que
 
                         if gym_responses:
                             parse_gyms(args, gym_responses,
-                                       whq, dbq, scheduler)
+                                       whq, dbq)
 
                 # Delay the desired amount after "scan" completion.
                 delay = scheduler.delay(status['last_scan_date'])
@@ -1141,13 +1172,12 @@ def calc_distance(pos1, pos2):
 
 
 # Delay each thread start time so that logins occur after delay.
-def stagger_thread(args, account):
-    if args.accounts.index(account) == 0:
-        return  # No need to delay the first one.
-    delay = args.accounts.index(
-        account) * args.login_delay % 60 + ((random.random() - .0) / 2)
-    log.debug('Delaying thread startup for %.2f seconds...', delay)
+def stagger_thread(args):
+    loginDelayLock.acquire()
+    delay = args.login_delay + ((random.random() - .5) / 2)
+    log.debug('Delaying thread startup for %.2f seconds', delay)
     time.sleep(delay)
+    loginDelayLock.release()
 
 
 # The delta from last stat to current stat
