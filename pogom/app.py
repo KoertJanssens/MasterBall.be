@@ -12,11 +12,12 @@ from s2sphere import LatLng
 from pogom.utils import get_args
 from datetime import timedelta
 from collections import OrderedDict
+from bisect import bisect_left
 
 from . import config
 from .models import (Pokemon, Gym, Pokestop, ScannedLocation,
                      MainWorker, WorkerStatus, Token)
-from .utils import now
+from .utils import now, dottedQuadToNum, get_blacklist
 from threading import Lock
 tokenLock = Lock()
 log = logging.getLogger(__name__)
@@ -24,9 +25,28 @@ compress = Compress()
 
 
 class Pogom(Flask):
+
     def __init__(self, import_name, **kwargs):
         super(Pogom, self).__init__(import_name, **kwargs)
         compress.init_app(self)
+
+        args = get_args()
+
+        # Global blist
+        if not args.disable_blacklist:
+            log.info('Retrieving blacklist...')
+            self.blacklist = get_blacklist()
+            # Sort & index for binary search
+            self.blacklist.sort(key=lambda r: r[0])
+            self.blacklist_keys = [
+                dottedQuadToNum(r[0]) for r in self.blacklist
+            ]
+        else:
+            log.info('Blacklist disabled for this session.')
+            self.blacklist = []
+            self.blacklist_keys = []
+
+        # Routes
         self.json_encoder = CustomJSONEncoder
         self.route("/", methods=['GET'])(self.fullmap)
         self.route("/raw_data", methods=['GET'])(self.raw_data)
@@ -73,6 +93,24 @@ class Pogom(Flask):
         return render_template("inject.js",
                                domain=args.manual_captcha_solving_domain
                                )
+
+    def validate_request(self):
+        if self._ip_is_blacklisted(request.remote_addr):
+            log.debug('Denied access to %s.', request.remote_addr)
+            abort(403)
+
+    def _ip_is_blacklisted(self, ip):
+        if not self.blacklist:
+            return False
+
+        # Get the nearest IP range
+        pos = max(bisect_left(self.blacklist_keys, ip) - 1, 0)
+        ip_range = self.blacklist[pos]
+
+        start = dottedQuadToNum(ip_range[0])
+        end = dottedQuadToNum(ip_range[1])
+
+        return start <= dottedQuadToNum(ip) <= end
 
     def set_search_control(self, control):
         self.search_control = control

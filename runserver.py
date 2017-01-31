@@ -154,6 +154,13 @@ def main():
                 '"npm install && npm run build" before starting the server.')
             sys.exit()
 
+        # You need custom image files now.
+        if not os.path.isfile(
+                os.path.join(os.path.dirname(__file__),
+                             'static/icons-sprite.png')):
+            log.critical('Missing sprite files.')
+            sys.exit()
+
     # These are very noisy, let's shush them up a bit.
     logging.getLogger('peewee').setLevel(logging.INFO)
     logging.getLogger('requests').setLevel(logging.WARNING)
@@ -215,6 +222,8 @@ def main():
     config['CHINA'] = args.china
 
     app = Pogom(__name__)
+    app.before_request(app.validate_request)
+
     db = init_database(app)
     if args.clear_db:
         log.info('Clearing database')

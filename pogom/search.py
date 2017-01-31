@@ -41,7 +41,8 @@ from pgoapi.exceptions import AuthException
 
 from .models import parse_map, GymDetails, parse_gyms, MainWorker, WorkerStatus, Token
 from .fakePogoApi import FakePogoApi
-from .utils import now, get_tutorial_state, complete_tutorial
+from .utils import (now, get_tutorial_state, complete_tutorial,
+                    generate_device_info)
 from .transform import get_new_coords
 import schedulers
 
@@ -486,7 +487,8 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
                     scheduler_array[i].schedule()
                 except Exception as e:
                     log.error(
-                        'Schedule creation had an Exception: {}.'.format(e))
+                        'Schedule creation had an Exception: {}.'.format(
+                            repr(e)))
                     traceback.print_exc(file=sys.stdout)
                     time.sleep(10)
             else:
@@ -713,7 +715,8 @@ def search_worker_thread(args, account_queue, account_failures,
             if args.mock != '':
                 api = FakePogoApi(args.mock)
             else:
-                api = PGoApi()
+                device_info = generate_device_info()
+                api = PGoApi(device_info=device_info)
 
             # New account - new proxy.
             if args.proxy:
@@ -855,16 +858,16 @@ def search_worker_thread(args, account_queue, account_failures,
 
                     # Check tutorial completion.
                     if args.complete_tutorial:
-                        tutorial_state = get_tutorial_state(api)
+                        tutorial_state = get_tutorial_state(api, account)
 
                         if not all(x in tutorial_state
                                    for x in (0, 1, 3, 4, 7)):
-                            log.debug('Completing tutorial steps for %s.',
-                                      account['username'])
+                            log.info('Completing tutorial steps for %s.',
+                                     account['username'])
                             complete_tutorial(api, account, tutorial_state)
                         else:
-                            log.debug('Account %s has completed tutorial.',
-                                      account['username'])
+                            log.info('Account %s already completed tutorial.',
+                                     account['username'])
 
                 # Putting this message after the check_login so the messages
                 # aren't out of order.
@@ -976,8 +979,8 @@ def search_worker_thread(args, account_queue, account_failures,
                     consecutive_fails = 0
                     status['message'] = ('Search at {:6f},{:6f} completed ' +
                                          'with {} finds.').format(
-                                            step_location[0], step_location[1],
-                                            parsed['count'])
+                        step_location[0], step_location[1],
+                        parsed['count'])
                     log.debug(status['message'])
                 except Exception as e:
                     parsed = False
@@ -991,7 +994,7 @@ def search_worker_thread(args, account_queue, account_failures,
                                                            step_location[1],
                                                            account['username'])
                     log.exception('{}. Exception message: {}'.format(
-                        status['message'], e))
+                        status['message'], repr(e)))
 
                 # Get detailed information about gyms.
                 if args.gym_info and parsed:
@@ -1086,9 +1089,9 @@ def search_worker_thread(args, account_queue, account_failures,
 
         # Catch any process exceptions, log them, and continue the thread.
         except Exception as e:
-            log.error(
+            log.error((
                 'Exception in search_worker under account {} Exception ' +
-                'message: {}.'.format(account['username'], e))
+                'message: {}.').format(account['username'], repr(e)))
             status['message'] = (
                 'Exception in search_worker using account {}. Restarting ' +
                 'with fresh account. See logs for details.').format(
@@ -1172,7 +1175,7 @@ def map_request(api, position, no_jitter=False):
         return response
 
     except Exception as e:
-        log.warning('Exception while downloading map: %s', e)
+        log.warning('Exception while downloading map: %s', repr(e))
         return False
 
 
@@ -1198,7 +1201,7 @@ def gym_request(api, position, gym):
         return x
 
     except Exception as e:
-        log.warning('Exception while downloading gym details: %s', e)
+        log.warning('Exception while downloading gym details: %s', repr(e))
         return False
 
 

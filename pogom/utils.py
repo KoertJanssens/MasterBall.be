@@ -11,6 +11,10 @@ import shutil
 import pprint
 import time
 import random
+import socket
+import struct
+import requests
+from uuid import uuid4
 from s2sphere import CellId, LatLng
 
 from . import config
@@ -361,6 +365,9 @@ def get_args():
                         help=('Pause searching while web UI is inactive ' +
                               'for this timeout(in seconds).'),
                         type=int, default=0)
+    parser.add_argument('--disable-blacklist',
+                        help=('Disable the global anti-scraper IP blacklist.'),
+                        action='store_true', default=False)
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument('-v', '--verbose',
                            help=('Show debug messages from PokemonGo-Map ' +
@@ -747,7 +754,8 @@ class Timer():
 
 # Check if all important tutorial steps have been completed.
 # API argument needs to be a logged in API instance.
-def get_tutorial_state(api):
+def get_tutorial_state(api, account):
+    log.debug('Checking tutorial state for %s.', account['username'])
     request = api.create_request()
     request.get_player(
         player_locale={'country': 'US',
@@ -759,7 +767,7 @@ def get_tutorial_state(api):
     get_player = response.get('GET_PLAYER', {})
     tutorial_state = get_player.get(
         'player_data', {}).get('tutorial_state', [])
-
+    time.sleep(random.uniform(2, 4))
     return tutorial_state
 
 
@@ -771,6 +779,7 @@ def complete_tutorial(api, account, tutorial_state):
         time.sleep(random.uniform(1, 5))
         request = api.create_request()
         request.mark_tutorial_complete(tutorials_completed=0)
+        log.debug('Sending 0 tutorials_completed for %s.', account['username'])
         request.call()
 
     if 1 not in tutorial_state:
@@ -785,17 +794,21 @@ def complete_tutorial(api, account, tutorial_state):
             'eyes': random.randint(1, 4),
             'backpack': random.randint(1, 5)
         })
+        log.debug('Sending set random player character request for %s.',
+                  account['username'])
         request.call()
 
         time.sleep(random.uniform(0.3, 0.5))
 
         request = api.create_request()
         request.mark_tutorial_complete(tutorials_completed=1)
+        log.debug('Sending 1 tutorials_completed for %s.', account['username'])
         request.call()
 
     time.sleep(random.uniform(0.5, 0.6))
     request = api.create_request()
     request.get_player_profile()
+    log.debug('Fetching player profile for %s...', account['username'])
     request.call()
 
     starter_id = None
@@ -806,6 +819,7 @@ def complete_tutorial(api, account, tutorial_state):
             '1a3c2816-65fa-4b97-90eb-0b301c064b7a/1477084786906000',
             'aa8f7687-a022-4773-b900-3a8c170e9aea/1477084794890000',
             'e89109b0-9a54-40fe-8431-12f7826c8194/1477084802881000'])
+        log.debug('Grabbing some game assets.')
         request.call()
 
         time.sleep(random.uniform(1, 1.6))
@@ -816,6 +830,7 @@ def complete_tutorial(api, account, tutorial_state):
         request = api.create_request()
         starter = random.choice((1, 4, 7))
         request.encounter_tutorial_complete(pokemon_id=starter)
+        log.debug('Catching the starter for %s.', account['username'])
         request.call()
 
         time.sleep(random.uniform(0.5, 0.6))
@@ -838,11 +853,13 @@ def complete_tutorial(api, account, tutorial_state):
         time.sleep(random.uniform(5, 12))
         request = api.create_request()
         request.claim_codename(codename=account['username'])
+        log.debug('Claiming codename for %s.', account['username'])
         request.call()
 
         time.sleep(random.uniform(1, 1.3))
         request = api.create_request()
         request.mark_tutorial_complete(tutorials_completed=4)
+        log.debug('Sending 4 tutorials_completed for %s.', account['username'])
         request.call()
 
         time.sleep(0.1)
@@ -858,15 +875,81 @@ def complete_tutorial(api, account, tutorial_state):
         time.sleep(random.uniform(4, 10))
         request = api.create_request()
         request.mark_tutorial_complete(tutorials_completed=7)
+        log.debug('Sending 7 tutorials_completed for %s.', account['username'])
         request.call()
 
     if starter_id:
         time.sleep(random.uniform(3, 5))
         request = api.create_request()
         request.set_buddy_pokemon(pokemon_id=starter_id)
+        log.debug('Setting buddy pokemon for %s.', account['username'])
         request.call()
         time.sleep(random.uniform(0.8, 1.8))
 
     # Sleeping before we start scanning to avoid Niantic throttling.
+    log.debug('And %s is done. Wait for a second, to avoid throttle.',
+              account['username'])
     time.sleep(random.uniform(2, 4))
     return True
+
+
+def dottedQuadToNum(ip):
+    return struct.unpack("!L", socket.inet_aton(ip))[0]
+
+
+def get_blacklist():
+    try:
+        url = 'https://blist.devkat.org/blacklist.json'
+        blacklist = requests.get(url).json()
+        log.debug('Entries in blacklist: %s.', len(blacklist))
+        return blacklist
+    except (requests.exceptions.RequestException, IndexError, KeyError):
+        log.error('Unable to retrieve blacklist, setting to empty.')
+        return []
+
+
+# Generate random device info.
+# Original by Noctem.
+IPHONES = {'iPhone5,1': 'N41AP',
+           'iPhone5,2': 'N42AP',
+           'iPhone5,3': 'N48AP',
+           'iPhone5,4': 'N49AP',
+           'iPhone6,1': 'N51AP',
+           'iPhone6,2': 'N53AP',
+           'iPhone7,1': 'N56AP',
+           'iPhone7,2': 'N61AP',
+           'iPhone8,1': 'N71AP',
+           'iPhone8,2': 'N66AP',
+           'iPhone8,4': 'N69AP',
+           'iPhone9,1': 'D10AP',
+           'iPhone9,2': 'D11AP',
+           'iPhone9,3': 'D101AP',
+           'iPhone9,4': 'D111AP'}
+
+
+def generate_device_info():
+    device_info = {'device_brand': 'Apple', 'device_model': 'iPhone',
+                   'hardware_manufacturer': 'Apple',
+                   'firmware_brand': 'iPhone OS'}
+    devices = tuple(IPHONES.keys())
+
+    ios8 = ('8.0', '8.0.1', '8.0.2', '8.1', '8.1.1',
+            '8.1.2', '8.1.3', '8.2', '8.3', '8.4', '8.4.1')
+    ios9 = ('9.0', '9.0.1', '9.0.2', '9.1', '9.2', '9.2.1',
+            '9.3', '9.3.1', '9.3.2', '9.3.3', '9.3.4', '9.3.5')
+    ios10 = ('10.0', '10.0.1', '10.0.2', '10.0.3', '10.1', '10.1.1')
+
+    device_info['device_model_boot'] = random.choice(devices)
+    device_info['hardware_model'] = IPHONES[device_info['device_model_boot']]
+    device_info['device_id'] = uuid4().hex
+
+    if device_info['hardware_model'] in ('iPhone9,1', 'iPhone9,2',
+                                         'iPhone9,3', 'iPhone9,4'):
+        device_info['firmware_type'] = random.choice(ios10)
+    elif device_info['hardware_model'] in ('iPhone8,1', 'iPhone8,2',
+                                           'iPhone8,4'):
+        device_info['firmware_type'] = random.choice(ios9 + ios10)
+    else:
+        device_info['firmware_type'] = random.choice(ios8 + ios9 + ios10)
+
+    return device_info
