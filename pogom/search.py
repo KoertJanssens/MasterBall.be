@@ -26,7 +26,7 @@ import random
 import time
 import copy
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from threading import Thread, Lock
 from queue import Queue, Empty
 from sets import Set
@@ -37,7 +37,7 @@ from pgoapi.utilities import f2i
 from pgoapi import utilities as util
 from pgoapi.hash_server import HashServer
 
-from .models import parse_map, GymDetails, parse_gyms, MainWorker, WorkerStatus, Token
+from .models import parse_map, GymDetails, parse_gyms, MainWorker, WorkerStatus
 from .fakePogoApi import FakePogoApi
 from .utils import now, generate_device_info
 from .transform import get_new_coords, jitter_location
@@ -54,9 +54,6 @@ log = logging.getLogger(__name__)
 TIMESTAMP = ('\000\000\000\000\000\000\000\000\000\000\000' +
              '\000\000\000\000\000\000\000\000\000\000')
 
-token_needed = 0
-
-tokenLock = Lock()
 loginDelayLock = Lock()
 
 
@@ -818,8 +815,13 @@ def search_worker_thread(args, account_queue, account_failures,
 
                 # If this account has not found anything for too long, let it
                 # rest.
-                if (args.max_empty > 0) and (consecutive_noitems >= args.max_empty or consecutive_noitems>status['success']):
-                    status['message'] = 'Account {} returned empty scan for more than {} scans; possibly ip is banned. Switching accounts...'.format(account['username'], args.max_empty)
+                if ((args.max_empty > 0) and
+			 (consecutive_noitems >= args.max_empty or consecutive_noitems>status['success'])):
+                    status['message'] = (
+				'Account {} returned empty scan for more than {} ' + 
+				'scans; possibly ip is banned. Switching ' +
+				'accounts...').format(account['username'],
+						      args.max_empty)
                     log.warning(status['message'])
                     status['on_hold'] = True
                     account_failures.append({'status': status,

@@ -42,7 +42,7 @@ def captcha_overseer_thread(args, account_queue, account_captchas,
 
         tokens_needed = len(account_captchas)
         if tokens_needed > 0:
-	    regio = args.status_name
+            regio = args.status_name
             tokens = Token.get_valid(tokens_needed,regio)
             tokens_available = len(tokens)
             solvers = min(tokens_needed, tokens_available)

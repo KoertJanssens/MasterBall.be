@@ -19,8 +19,6 @@ from . import config
 from .models import (Pokemon, Gym, Pokestop, ScannedLocation,
                      MainWorker, WorkerStatus, Token)
 from .utils import now, dottedQuadToNum, get_blacklist
-from threading import Lock
-tokenLock = Lock()
 log = logging.getLogger(__name__)
 compress = Compress()
 
