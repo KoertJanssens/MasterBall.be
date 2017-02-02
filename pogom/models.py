@@ -1646,7 +1646,7 @@ class Token(flaskDb.Model):
         # Make sure we don't grab more than we can process
         if limit > 15:
             limit = 15
-        valid_time = datetime.utcnow() - timedelta(seconds=30)
+        valid_time = datetime.utcnow() - timedelta(seconds=60)
         token_ids = []
         tokens = []
         try:
@@ -1654,7 +1654,7 @@ class Token(flaskDb.Model):
                 query = (Token
                          .select()
                          #.where((Token.regio == regio & Token.last_updated > valid_time) | Token.last_updated < valid_time)
-                         .where(Token.regio == regio)
+                         .where((Token.regio == regio) | (Token.last_updated < valid_time))
                          .order_by(Token.last_updated.asc())
                          .limit(limit))
                 for t in query:
