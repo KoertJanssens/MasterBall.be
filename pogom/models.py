@@ -1642,7 +1642,7 @@ class Token(flaskDb.Model):
 
 
     @staticmethod
-    def get_valid(limit=15,regio):
+    def get_valid(limit,regio):
         # Make sure we don't grab more than we can process
         if limit > 15:
             limit = 15
