@@ -77,6 +77,7 @@ class Pogom(Flask):
         response = 'error'
         if request.form:
             token = request.form.get('token')
+            args = get_args()
             query = Token.insert(token=token, last_updated=datetime.utcnow(), regio=args.status_name)
             query.execute()
             response = 'ok'
