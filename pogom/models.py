@@ -1653,7 +1653,8 @@ class Token(flaskDb.Model):
             with flaskDb.database.transaction():
                 query = (Token
                          .select()
-                         .where((Token.regio == regio & Token.last_updated > valid_time) | Token.last_updated < valid_time)
+                         #.where((Token.regio == regio & Token.last_updated > valid_time) | Token.last_updated < valid_time)
+                         .where(Token.regio == regio)
                          .order_by(Token.last_updated.asc())
                          .limit(limit))
                 for t in query:
