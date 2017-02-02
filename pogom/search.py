@@ -797,7 +797,8 @@ def search_worker_thread(args, account_queue, account_failures,
 
                 # If this account has been messing up too hard, let it rest.
                 if ((args.max_failures > 0) and
-                        (consecutive_fails >= args.max_failures or consecutive_fails>status['success'])):
+                        (consecutive_fails >= args.max_failures or 
+                         consecutive_fails>status['success'])):
                     status['message'] = (
                         'Account {} failed more than {} scans; possibly bad ' +
                         'account. Switching accounts...').format(
@@ -816,12 +817,13 @@ def search_worker_thread(args, account_queue, account_failures,
                 # If this account has not found anything for too long, let it
                 # rest.
                 if ((args.max_empty > 0) and
-			 (consecutive_noitems >= args.max_empty or consecutive_noitems>status['success'])):
+			            (consecutive_noitems >= args.max_empty or 
+                         consecutive_noitems>status['success'])):
                     status['message'] = (
-				'Account {} returned empty scan for more than {} ' + 
-				'scans; possibly ip is banned. Switching ' +
-				'accounts...').format(account['username'],
-						      args.max_empty)
+                        'Account {} returned empty scan for more than {} ' +
+                        'scans; possibly ip is banned. Switching ' +
+                        'accounts...').format(account['username'],
+                                              args.max_empty)
                     log.warning(status['message'])
                     status['on_hold'] = True
                     account_failures.append({'status': status,
