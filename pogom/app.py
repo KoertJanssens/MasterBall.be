@@ -78,7 +78,7 @@ class Pogom(Flask):
         if request.form:
             token = request.form.get('token')
             args = get_args()
-            query = Token.insert(token=token, last_updated=datetime.utcnow(), regio=args.status_name)
+            query = Token.insert(token=token, last_updated=datetime.utcnow(), regio=args.captcha_regio)
             query.execute()
             response = 'ok'
         r = make_response(response)
