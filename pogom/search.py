@@ -336,7 +336,7 @@ def worker_status_db_thread(threads_status, name, db_updates_queue):
         if overseer is not None:
             db_updates_queue.put((MainWorker, {0: overseer}))
             db_updates_queue.put((WorkerStatus, workers))
-        time.sleep(10)
+        time.sleep(30)
 
 
 # The main search loop that keeps an eye on the over all process.
