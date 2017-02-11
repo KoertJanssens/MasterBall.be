@@ -136,7 +136,7 @@ def get_args():
     parser.add_argument('-cds', '--captcha-dsk',
                         help='PokemonGo captcha data-sitekey.',
                         default="6LeeTScTAAAAADqvhqVMhPpr_vB9D364Ia-1dSgK")
-    parser.add_argument('-mcsd', '--manual-captcha-domain',
+    parser.add_argument('-mcd', '--manual-captcha-domain',
                         help='Domain to where captcha tokens will be sent.',
                         default="http://127.0.0.1:5000")
     parser.add_argument('-mcr', '--manual-captcha-refresh',
