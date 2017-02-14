@@ -1095,7 +1095,7 @@ class MainWorker(BaseModel):
         return MainWorker.select(fn.SUM(MainWorker.accounts_captcha)).scalar()
 
     @staticmethod
-    def get_account_stats():
+    def get_account_stats(regio):
         account_stats = (MainWorker
                          .select((MainWorker.accounts_working),
                                  (MainWorker.accounts_captcha),
