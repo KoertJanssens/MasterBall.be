@@ -1095,11 +1095,12 @@ class MainWorker(BaseModel):
         return MainWorker.select(fn.SUM(MainWorker.accounts_captcha)).scalar()
 
     @staticmethod
-    def get_account_stats():
+    def get_account_stats(regio):
         account_stats = (MainWorker
-                         .select(fn.SUM(MainWorker.accounts_working),
-                                 fn.SUM(MainWorker.accounts_captcha),
-                                 fn.SUM(MainWorker.accounts_failed))
+                         .select((MainWorker.accounts_working),
+                                 (MainWorker.accounts_captcha),
+                                 (MainWorker.accounts_failed))
+                         .where(MainWorker.worker_name == regio)
                          .scalar(as_tuple=True))
         dict = {'working': 0, 'captcha': 0, 'failed': 0}
         if account_stats[0] is not None:
