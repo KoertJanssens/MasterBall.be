@@ -86,7 +86,8 @@ class Pogom(Flask):
         return r
 
     def get_account_stats(self):
-        stats = MainWorker.get_account_stats()
+        args = get_args()
+        stats = MainWorker.get_account_stats(regio=args.captcha_regio)
         r = make_response(jsonify(**stats))
         r.headers.add('Access-Control-Allow-Origin', '*')
         return r
