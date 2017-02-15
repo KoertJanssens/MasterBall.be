@@ -1833,10 +1833,10 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                 skipped += 1
                 continue
                 
-            if (p['pokemon_data']['pokemon_id'] in [13,16,19,21]):
-                # If basic Pokemon -> don't process it.
-                skipped += 1
-                continue
+            #if (p['pokemon_data']['pokemon_id'] in [13,16,19,21]):
+            #    # If basic Pokemon -> don't process it.
+            #    skipped += 1
+            #    continue
 
             start_end = SpawnPoint.start_end(sp, 1)
             seconds_until_despawn = (start_end[1] - now_secs) % 3600
