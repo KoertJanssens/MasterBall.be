@@ -314,7 +314,7 @@ def account_recycler(args, accounts_queue, account_failures):
                     a['notified'] = True
 
 
-def worker_status_db_thread(threads_status, name, db_updates_queue):
+def worker_status_db_thread(threads_status, name, regio, db_updates_queue):
 
     while True:
         workers = {}
@@ -328,7 +328,8 @@ def worker_status_db_thread(threads_status, name, db_updates_queue):
                     'last_modified': datetime.utcnow(),
                     'accounts_working': status['active_accounts'],
                     'accounts_captcha': status['accounts_captcha'],
-                    'accounts_failed': status['accounts_failed']
+                    'accounts_failed': status['accounts_failed'],
+                    'captcha_regio': regio
                 }
             elif status['type'] == 'Worker':
                 workers[status['username']] = WorkerStatus.db_format(
@@ -420,7 +421,7 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
         log.info('Starting status database thread...')
         t = Thread(target=worker_status_db_thread,
                    name='status_worker_db',
-                   args=(threadStatus, args.status_name, db_updates_queue))
+                   args=(threadStatus, args.status_name, args.captcha_regio, db_updates_queue))
         t.daemon = True
         t.start()
 
