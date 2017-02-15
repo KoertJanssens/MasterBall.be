@@ -544,8 +544,8 @@ class Pogom(Flask):
 
         if request.form.get('password', None) == args.status_page_password:
             d['login'] = 'ok'
-            d['main_workers'] = MainWorker.get_all()
-            d['workers'] = WorkerStatus.get_all()
+            d['main_workers'] = MainWorker.get_regio(args.captcha_regio)
+            d['workers'] = WorkerStatus.get_worker_regio(args.captcha_regio)
         else:
             d['login'] = 'failed'
         return jsonify(d)
