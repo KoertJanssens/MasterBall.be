@@ -1089,11 +1089,21 @@ class MainWorker(BaseModel):
     accounts_working = IntegerField()
     accounts_captcha = IntegerField()
     accounts_failed = IntegerField()
+    captcha_regio = CharField(max_length=50)
 
     @staticmethod
     def get_total_captchas():
         return MainWorker.select(fn.SUM(MainWorker.accounts_captcha)).scalar()
+    
+    @staticmethod
+    def get_regio(regio):
+        query = (MainWorker.select().where(MainWorker.captcha_regio == regio).dicts())
+        regios = []
+        for s in query:
+            regios.append(s)
 
+        return regios
+        
     @staticmethod
     def get_account_stats(regio):
         account_stats = (MainWorker
@@ -1156,6 +1166,19 @@ class WorkerStatus(BaseModel):
             status.append(s)
 
         return status
+    
+    @staticmethod
+    def get_worker_regio(regio):
+        query = (WorkerStatus
+                 .select()
+                 .where((WorkerStatus.worker_name == regio))
+                 .dicts())
+        
+        result = []
+        for s in query:
+            result.append(s)
+            
+        return result
 
     @staticmethod
     def get_worker(username, loc=False):
