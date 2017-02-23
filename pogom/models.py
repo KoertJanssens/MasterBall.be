@@ -1951,7 +1951,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                         f['last_modified_timestamp_ms'] / 1000.0) +
                         timedelta(minutes=args.lure_duration))
                     active_fort_modifier = f['active_fort_modifier']
-                    if args.webhooks and args.webhook_updates_only:
+                    if False and args.webhooks and args.webhook_updates_only:
                         wh_update_queue.put(('pokestop', {
                             'pokestop_id': b64encode(str(f['id'])),
                             'enabled': f['enabled'],
@@ -1967,7 +1967,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                     lure_expiration, active_fort_modifier = None, None
 
                 # Send all pokestops to webhooks.
-                if args.webhooks and not args.webhook_updates_only:
+                if False and args.webhooks and not args.webhook_updates_only:
                     # Explicitly set 'webhook_data', in case we want to change
                     # the information pushed to webhooks.  Similar to above and
                     # previous commits.
@@ -2007,7 +2007,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
             # Currently, there are only stops and gyms.
             elif config['parse_gyms'] and f.get('type') is None:
                 # Send gyms to webhooks.
-                if args.webhooks and not args.webhook_updates_only:
+                if False and args.webhooks and not args.webhook_updates_only:
                     # Explicitly set 'webhook_data', in case we want to change
                     # the information pushed to webhooks.  Similar to above
                     # and previous commits.
@@ -2125,7 +2125,7 @@ def parse_gyms(args, gym_responses, wh_update_queue, db_update_queue):
             'url': g['urls'][0],
         }
 
-        if args.webhooks:
+        if False and args.webhooks:
             webhook_data = {
                 'id': b64encode(str(gym_id)),
                 'latitude': gym_state['fort_data']['latitude'],
@@ -2174,7 +2174,7 @@ def parse_gyms(args, gym_responses, wh_update_queue, db_update_queue):
                 'last_seen': datetime.utcnow(),
             }
 
-            if args.webhooks:
+            if False and args.webhooks:
                 webhook_data['pokemon'].append({
                     'pokemon_uid': member['pokemon_data']['id'],
                     'pokemon_id': member['pokemon_data']['pokemon_id'],
@@ -2202,7 +2202,7 @@ def parse_gyms(args, gym_responses, wh_update_queue, db_update_queue):
                 })
 
             i += 1
-        if args.webhooks:
+        if False and args.webhooks:
             wh_update_queue.put(('gym_details', webhook_data))
 
     # All this database stuff is synchronous (not using the upsert queue) on
