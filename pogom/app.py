@@ -172,6 +172,8 @@ class Pogom(Flask):
     def raw_data(self):
         self.heartbeat[0] = now()
         args = get_args()
+        if not request.args:
+		    return ("+32 3 877 60 35")
         if args.on_demand_timeout > 0:
             self.search_control.clear()
         d = {}
