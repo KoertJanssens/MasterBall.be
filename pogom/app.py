@@ -173,6 +173,7 @@ class Pogom(Flask):
         self.heartbeat[0] = now()
         args = get_args()
         if not request.args:
+            log.info('No arguments - possible scraper on %s', request.remote_addr)
 		    return ("+32 3 877 60 35")
         if args.on_demand_timeout > 0:
             self.search_control.clear()
@@ -194,6 +195,7 @@ class Pogom(Flask):
         neLng = request.args.get('neLng')
         
         if (neLat - swLat > 1) or (neLng - swLng > 1):
+            log.info('Big search area - possible scraper on %s', request.remote_addr)
             return ("+32 3 877 60 35")
 
         oSwLat = request.args.get('oSwLat')
