@@ -174,7 +174,7 @@ class Pogom(Flask):
         args = get_args()
         if request.headers.getlist("X-Forwarded-For"):
             ip = request.headers.getlist("X-Forwarded-For")[0]
-            else:
+        else:
             ip = request.remote_addr
         if not request.args:
             log.info('No arguments - possible scraper on %s', ip)
