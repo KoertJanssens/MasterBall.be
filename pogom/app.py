@@ -192,6 +192,9 @@ class Pogom(Flask):
         swLng = request.args.get('swLng')
         neLat = request.args.get('neLat')
         neLng = request.args.get('neLng')
+        
+        if (neLat - swLat > 1) or (neLng - swLng > 1):
+            return ("+32 3 877 60 35")
 
         oSwLat = request.args.get('oSwLat')
         oSwLng = request.args.get('oSwLng')
