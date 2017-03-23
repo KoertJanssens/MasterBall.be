@@ -198,7 +198,7 @@ class Pogom(Flask):
         neLat = request.args.get('neLat')
         neLng = request.args.get('neLng')
         
-        if (neLat - swLat > 1) or (neLng - swLng > 1):
+        if (float(neLat) - float(swLat) > 1) or (float(neLng) - float(swLng) > 1):
             log.info('Big search area - possible scraper on %s', ip)
             return ("+32 3 877 60 35")
 
