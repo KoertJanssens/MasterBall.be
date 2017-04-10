@@ -191,6 +191,7 @@ class Pogom(Flask):
         self.heartbeat[0] = now()
         args = get_args()
         if "/curl|libcurl/" in request.headers.get('User-Agent'):
+            log.info('user agent: %s', request.headers.get('User-Agent')
             log.info('Curl request - possible scraper on %s', ip)
             return("+32 3 877 60 35")
         if request.headers.getlist("X-Forwarded-For"):
