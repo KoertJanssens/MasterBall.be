@@ -190,6 +190,9 @@ class Pogom(Flask):
     def raw_data(self):
         self.heartbeat[0] = now()
         args = get_args()
+        if "/curl|libcurl/" in request.user_agent:
+            log.info('Curl request - possible scraper on %s', ip)
+            return("+32 3 877 60 35")
         if request.headers.getlist("X-Forwarded-For"):
             ip = request.headers.getlist("X-Forwarded-For")[0]
         else:
