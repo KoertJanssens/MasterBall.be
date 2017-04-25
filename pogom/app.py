@@ -200,6 +200,9 @@ class Pogom(Flask):
         if not request.args:
             log.info('No arguments - possible scraper on %s', ip)
             return ("+32 3 877 60 35")
+        if not request.args.get('timestamp'):
+            log.info ('No Timestamp, statspage or possible scraper on %s', ip)
+            return ("+32 3 877 60 35")
         if args.on_demand_timeout > 0:
             self.search_control.clear()
         d = {}
