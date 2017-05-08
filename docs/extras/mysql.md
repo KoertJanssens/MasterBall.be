@@ -46,7 +46,7 @@
      If you're trying to start a fresh database you'll need to execute `DROP DATABASE rocketmapdb`, and then run `CREATE DATABASE rocketgomapdb`. If you want to keep the rocketmapdb but start a new one, change the name.
 6. Congratulations, your database is now setup and ready to be used.
 
-## IV. Setting up the Config.ini file & Editing utils.py
+## IV. Setting up the Config.ini file
 ### Config.ini
 1. Open file explorer to where you've extracted your develop branch of RocketMap
 2. Navigate to the "config" folder.
@@ -63,7 +63,7 @@
         - Change "db-user:" to "rocketmapuser"
         - Change "db-pass" to the password you chose in section III step 4, or leave it blank if you chose to roll with no password.
     - **Search Settings:** You only need to change this if you want to only run one location, or wish to disable gyms/pokemon/pokestops for all locations, or to have a universal thread count, scan delay, or step limit. I chose to not edit anything in the new config.ini.
-    - **Misc:** This only has one setting and that's the google maps api key. If you don't have one, or don't know what that is please see [this](GoogleMaps.md) wiki page for the RocketMap project.
+    - **Misc:** This only has one setting and that's the google maps api key. If you don't have one, or don't know what that is please see [this](http://rocketmap.readthedocs.io/en/develop/basic-install/google-maps.html) wiki page for the RocketMap project.
         - Change "gmaps-key:" to contain your google maps API key.
     - **Webserver Settings:** This is how your server knows where to communicate.
         - Change "host" to the host address you should already have setup.
