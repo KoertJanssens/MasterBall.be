@@ -1950,7 +1950,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                 skipped += 1
                 continue
                 
-            if (p['pokemon_data']['pokemon_id'] in args.encounter_blacklist):
+            if (p['pokemon_data']['pokemon_id'] in args.webhook_blacklist):
                 # If basic Pokemon -> don't process it.
                 skipped += 1
                 continue
