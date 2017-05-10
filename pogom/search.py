@@ -1136,7 +1136,7 @@ def search_worker_thread(args, account_queue, account_sets, account_failures,
                     hashkeys[key]['key'] = key
                     hashkeys[key]['peak'] = max(key_instance['peak'],
                                                 HashKeys.getStoredPeak(key))
-                    dbq.put((HashKeys, hashkeys))
+                    ## dbq.put((HashKeys, hashkeys))
 
                 # Delay the desired amount after "scan" completion.
                 delay = scheduler.delay(status['last_scan_date'])
