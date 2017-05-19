@@ -493,8 +493,9 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
     # The real work starts here but will halt on pause_bit.set().
     while True:
 
-        if (args.on_demand_timeout > 0 and
-                (now() - args.on_demand_timeout) > heartb[0]):
+        odt_triggered = (args.on_demand_timeout > 0 and
+                         (now() - args.on_demand_timeout) > heartb[0])
+        if odt_triggered:
             pause_bit.set()
             log.info('Searching paused due to inactivity...')
 
@@ -502,6 +503,11 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
         while pause_bit.is_set():
             for i in range(0, len(scheduler_array)):
                 scheduler_array[i].scanning_paused()
+            # API Watchdog - Continue to check API version.
+            if not args.no_version_check and not odt_triggered:
+                api_check_time = check_forced_version(args, api_version,
+                                                      api_check_time,
+                                                      pause_bit)
             time.sleep(1)
 
         # If a new location has been passed to us, get the most recent one.
@@ -575,7 +581,7 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
                              scheduler_array[0])
 
         # API Watchdog - Check if Niantic forces a new API.
-        if not args.no_version_check:
+        if not args.no_version_check and not odt_triggered:
             api_check_time = check_forced_version(args, api_version,
                                                   api_check_time, pause_bit)
 
@@ -1265,24 +1271,60 @@ def stat_delta(current_status, last_status, stat_name):
 
 def check_forced_version(args, api_version, api_check_time, pause_bit):
     if int(time.time()) > api_check_time:
+        log.debug("Checking forced API version.")
         api_check_time = int(time.time()) + args.version_check_interval
         forced_api = get_api_version(args)
 
-        if (StrictVersion(api_version) < StrictVersion(forced_api)
-                and forced_api != 0):
+        if not forced_api:
+            # Couldn't retrieve API version. Pause scanning.
             pause_bit.set()
-            log.info(('Started with API: {}, ' +
-                      'Niantic forced to API: {}').format(
-                api_version,
-                forced_api))
-            log.info('Scanner paused due to forced Niantic API update.')
-            log.info('Stop the scanner process until RocketMap ' +
-                     'has updated.')
+            log.warning('Forced API check got no or invalid response. ' +
+                        'Possible bad proxy.')
+            log.warning('Scanner paused due to failed API check.')
+            return api_check_time
+
+        # Got a response let's compare version numbers.
+        try:
+            if StrictVersion(api_version) < StrictVersion(forced_api):
+                # Installed API version is lower. Pause scanning.
+                pause_bit.set()
+                log.warning('Started with API: %s, ' +
+                            'Niantic forced to API: %s',
+                            api_version,
+                            forced_api)
+                log.warning('Scanner paused due to forced Niantic API update.')
+            else:
+                # API check was successful and
+                # installed API version is newer or equal forced API.
+                # Continue scanning.
+                log.debug("API check was successful. Continue scanning.")
+                pause_bit.clear()
+
+        except ValueError as e:
+            # Unknown version format. Pause scanning as well.
+            pause_bit.set()
+            log.warning('Niantic forced unknown API version format: %s.',
+                        forced_api)
+            log.warning('Scanner paused due to unknown API version format.')
+        except Exception as e:
+            # Something else happened. Pause scanning as well.
+            pause_bit.set()
+            log.warning('Unknown error on API version comparison: %s.',
+                        repr(e))
+            log.warning('Scanner paused due to unknown API check error.')
 
     return api_check_time
 
 
 def get_api_version(args):
+    """Retrieve forced API version by Niantic
+
+    Args:
+        args: Command line arguments
+
+    Returns:
+        API version string. False if request failed.
+    """
     proxies = {}
 
     if args.proxy:
@@ -1296,15 +1338,16 @@ def get_api_version(args):
         s = requests.Session()
         s.mount('https://',
                 HTTPAdapter(max_retries=Retry(total=3,
-                                              backoff_factor=0.1,
+                                              backoff_factor=0.5,
                                               status_forcelist=[500, 502,
                                                                 503, 504])))
         r = s.get(
             'https://pgorelease.nianticlabs.com/plfe/version',
             proxies=proxies,
-            verify=False)
-        return r.text[2:] if (r.status_code == requests.codes.ok and
-                              r.text[2:].count('.') == 2) else 0
+            verify=False,
+            timeout=5)
+
+        return r.text[2:] if r.status_code == requests.codes.ok else False
     except Exception as e:
         log.warning('error on API check: %s', repr(e))
-        return 0
+        return False
